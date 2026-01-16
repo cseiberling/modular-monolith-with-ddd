@@ -136,12 +136,6 @@ jobs:
           echo "DLL count: $(find "${PUBLISH_ROOT}" -name '*.dll' | wc -l)"
           echo "Sample files:"
           find "${PUBLISH_ROOT}" -maxdepth 4 -type f | head -n 500
-
-          echo "PUBLISH_ROOT contents:"
-          find "${PUBLISH_ROOT}" -maxdepth 3 -type f | head -n 30
-
-          docker run --rm -v "${PUBLISH_ROOT}:/github/workspace:ro" alpine:3.20 \
-            sh -lc 'find /github/workspace -maxdepth 3 -type f | head -n 30'
           
       - name: Run CodeLogic Scan (scan published + all built assemblies)
         env:
