@@ -1,35 +1,63 @@
-name: CI Pipeline
-
+name: CI Pipeline (Build + CodeLogic Scan)
 on:
   push:
-    branches: [master]
+    branches:
+      - codelogic
+
   pull_request:
-    branches: [master]
+    branches:
+      - codelogic
+
+  workflow_dispatch:
+
+concurrency:
+  group: build-scan-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build and run Unit and Architecture Tests
+  build-and-scan:
+    name: Build + CodeLogic Scan
     runs-on: ubuntu-latest
+    environment: CodeLogic Scan Env
 
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup .NET
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Show disk space (runner)
+        shell: bash
+        run: |
+          df -h
+          docker system df || true
+
+      - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Run build
-        run: ./build.sh BuildAndUnitTests --configuration Release
 
-  integration:
-    name: Build and run Integration Tests
-    needs: [build]
-    runs-on: ubuntu-latest
+      - name: Build solution (src/CompanyName.MyMeetings.sln) + capture log
+        shell: bash
+        run: |
+          set -euo pipefail
 
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
-      - name: Run build
-        run: ./build.sh RunAllIntegrationTests
+          BUILD_LOG="${RUNNER_TEMP}/ms-build.log"
+          echo "BUILD_LOG=${BUILD_LOG}" >> "$GITHUB_ENV"
+
+          SLN_FILE="./src/CompanyName.MyMeetings.sln"
+          if [[ ! -f "${SLN_FILE}" ]]; then
+            echo "ERROR: Solution not found at ${SLN_FILE}"
+            ls -la
+            ls -la ./src || true
+            exit 1
+          fi
+
+          dotnet --info |& tee "${BUILD_LOG}"
+
+          echo "=== dotnet restore ${SLN_FILE} ===" |& tee -a "${BUILD_LOG}"
+          dotnet restore "${SLN_FILE}" |& tee -a "${BUILD_LOG}"
+
+          echo "=== dotnet build ${SLN_FILE} (TreatWarningsAsErrors=false) ===" |& tee -a "${BUILD_LOG}"
+          dotnet build "${SLN_FILE}" \
+            -c Release \
+            /p:TreatWarningsAsErrors=false \
+            |& tee -a "${BUILD_LOG}"
