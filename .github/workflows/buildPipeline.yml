@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - codelogic
+      - renovate/**
 
   pull_request:
     branches:
@@ -20,6 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: CodeLogic Scan Env
 
+    env:
+      DOTNET_MULTILEVEL_LOOKUP: "0"
+      DOTNET_NOLOGO: "1"
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "1"
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -30,10 +36,37 @@ jobs:
           df -h
           docker system df || true
 
-      - name: Setup .NET SDK
+      # Pin to a specific .NET 8 SDK so the runner doesn't "upgrade" you to .NET 10.
+      - name: Setup .NET SDK (pinned)
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: "8.0.417"
+
+      # Force SDK selection for all dotnet/MSBuild operations (including transitive tooling like SqlProj)
+      - name: Create global.json (pin SDK)
+        shell: bash
+        run: |
+          set -euo pipefail
+          DOTNET_VERSION="$(dotnet --version)"
+          echo "dotnet resolved to: ${DOTNET_VERSION}"
+          cat > global.json <<EOF
+          {
+            "sdk": {
+              "version": "${DOTNET_VERSION}",
+              "rollForward": "disable"
+            }
+          }
+          EOF
+          echo "Wrote global.json:"
+          cat global.json
+
+      - name: Confirm dotnet resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          which dotnet
+          dotnet --version
+          dotnet --info
 
       - name: Build solution (src/CompanyName.MyMeetings.sln) + capture log
         shell: bash
@@ -51,13 +84,12 @@ jobs:
             exit 1
           fi
 
-          dotnet --info |& tee "${BUILD_LOG}"
-
-          echo "=== dotnet restore ${SLN_FILE} ===" |& tee -a "${BUILD_LOG}"
+          echo "=== dotnet restore ${SLN_FILE} ===" |& tee "${BUILD_LOG}"
           dotnet restore "${SLN_FILE}" \
             -p:NuGetAudit=false \
             |& tee -a "${BUILD_LOG}"
 
+          echo "=== dotnet build ${SLN_FILE} ===" |& tee -a "${BUILD_LOG}"
           dotnet build "${SLN_FILE}" \
             -c Release \
             /p:TreatWarningsAsErrors=false \
