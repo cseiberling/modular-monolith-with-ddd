@@ -1,5 +1,4 @@
 name: CI Pipeline (Build + CodeLogic Scan)
-
 on:
   push:
     branches:
@@ -93,9 +92,38 @@ jobs:
             -p:NuGetAudit=false \
             --no-restore \
             |& tee -a "${BUILD_LOG}"
+            
+      - name: Publish (API + DatabaseMigrator) to /publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          PUBLISH_DIR="${RUNNER_TEMP}/publish"
+          echo "PUBLISH_DIR=${PUBLISH_DIR}" >> "$GITHUB_ENV"
+          mkdir -p "${PUBLISH_DIR}"
 
+          echo "=== dotnet publish API ===" |& tee -a "${BUILD_LOG}"
+          dotnet publish "./src/API/CompanyName.MyMeetings.API/CompanyName.MyMeetings.API.csproj" \
+            -c Release \
+            -p:TreatWarningsAsErrors=false \
+            -p:NuGetAudit=false \
+            -o "${PUBLISH_DIR}/api" \
+            --no-restore \
+            |& tee -a "${BUILD_LOG}"
+
+          echo "=== dotnet publish DatabaseMigrator ===" |& tee -a "${BUILD_LOG}"
+          dotnet publish "./src/Database/DatabaseMigrator/DatabaseMigrator.csproj" \
+            -c Release \
+            -p:TreatWarningsAsErrors=false \
+            -p:NuGetAudit=false \
+            -o "${PUBLISH_DIR}/migrator" \
+            --no-restore \
+            |& tee -a "${BUILD_LOG}"
+
+          echo "Published outputs:"
+          find "${PUBLISH_DIR}" -maxdepth 2 -type f -name "*.deps.json" -o -name "*.runtimeconfig.json" || true
+          
       # === CodeLogic Scan (.NET) ===
-      - name: Run CodeLogic Scan
+      - name: Run CodeLogic Scan (scan published outputs)
         env:
           CODELOGIC_HOST: ${{ vars.CODELOGIC_HOST }}
           AGENT_UUID: ${{ secrets.AGENT_UUID }}
@@ -103,13 +131,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          WORKSPACE="${GITHUB_WORKSPACE:-${{ github.workspace }}}"
+          : "${PUBLISH_DIR:?PUBLISH_DIR not set}"
 
           docker run --rm \
             -e CODELOGIC_HOST \
             -e AGENT_UUID \
             -e AGENT_PASSWORD \
-            -v "${WORKSPACE}:/github/workspace" \
+            -v "${PUBLISH_DIR}:/github/workspace" \
             thingsboard.app.codelogic.com/codelogic_dotnet:latest \
               analyze \
                 -p /github/workspace \
@@ -120,7 +148,9 @@ jobs:
                 -f DatabaseMigrator. \
                 -m CompanyName.MyMeetings. \
                 -m CompanyNames.MyMeetings. \
-                -m DatabaseMigrator.
+                -m DatabaseMigrator. \
+                --expunge-scan-sessions \
+                --rescan
 
       # === Send Build Info (attach build log) ===
       - name: Send Build Info (with build log)
