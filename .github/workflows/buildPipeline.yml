@@ -36,29 +36,27 @@ jobs:
           df -h
           docker system df || true
 
-      # Pin to a specific .NET 8 SDK so the runner doesn't "upgrade" you to .NET 10.
-      - name: Setup .NET SDK (pinned)
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.0.417"
-
-      # Force SDK selection for all dotnet/MSBuild operations (including transitive tooling like SqlProj)
-      - name: Create global.json (pin SDK)
+      # Write global.json FIRST (do NOT derive it from dotnet --version)
+      - name: Create global.json (pin SDK 8.0.417)
         shell: bash
         run: |
           set -euo pipefail
-          DOTNET_VERSION="$(dotnet --version)"
-          echo "dotnet resolved to: ${DOTNET_VERSION}"
-          cat > global.json <<EOF
+          cat > global.json <<'EOF'
           {
             "sdk": {
-              "version": "${DOTNET_VERSION}",
+              "version": "8.0.417",
               "rollForward": "disable"
             }
           }
           EOF
           echo "Wrote global.json:"
           cat global.json
+
+      # Install the exact SDK we pinned above
+      - name: Setup .NET SDK 8.0.417 (pinned)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.417"
 
       - name: Confirm dotnet resolution
         shell: bash
