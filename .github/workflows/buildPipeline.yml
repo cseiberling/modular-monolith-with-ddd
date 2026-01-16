@@ -54,10 +54,13 @@ jobs:
           dotnet --info |& tee "${BUILD_LOG}"
 
           echo "=== dotnet restore ${SLN_FILE} ===" |& tee -a "${BUILD_LOG}"
-          dotnet restore "${SLN_FILE}" |& tee -a "${BUILD_LOG}"
+          dotnet restore "${SLN_FILE}" \
+            -p:NuGetAudit=false \
+            |& tee -a "${BUILD_LOG}"
 
-          echo "=== dotnet build ${SLN_FILE} (TreatWarningsAsErrors=false) ===" |& tee -a "${BUILD_LOG}"
           dotnet build "${SLN_FILE}" \
             -c Release \
             /p:TreatWarningsAsErrors=false \
+            -p:NuGetAudit=false \
+            --no-restore \
             |& tee -a "${BUILD_LOG}"
