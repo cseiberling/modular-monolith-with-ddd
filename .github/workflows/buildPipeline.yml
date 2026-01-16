@@ -93,49 +93,16 @@ jobs:
             --no-restore \
             |& tee -a "${BUILD_LOG}"
             
-      - name: Publish entrypoints + collect all assemblies for scan
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          PUBLISH_ROOT="${RUNNER_TEMP}/publish-all"
-          echo "PUBLISH_ROOT=${PUBLISH_ROOT}" >> "$GITHUB_ENV"
-          rm -rf "${PUBLISH_ROOT}"
-          mkdir -p "${PUBLISH_ROOT}"
-
-          # 1) Publish the main runnable entrypoints (keep your known ones)
-          echo "=== publish API ==="
-          dotnet publish ./src/API/CompanyName.MyMeetings.API/CompanyName.MyMeetings.API.csproj \
+          dotnet publish ./src/CompanyName.MyMeetings.sln \
             -c Release \
             -p:TreatWarningsAsErrors=false \
             -p:NuGetAudit=false \
-            -o "${PUBLISH_ROOT}/API" \
-            --no-restore
-
-          echo "=== publish DatabaseMigrator ==="
-          dotnet publish ./src/Database/DatabaseMigrator/DatabaseMigrator.csproj \
-            -c Release \
-            -p:TreatWarningsAsErrors=false \
-            -p:NuGetAudit=false \
-            -o "${PUBLISH_ROOT}/DatabaseMigrator" \
-            --no-restore
-
-          # 2) Collect EVERYTHING built (all modules, tests, building blocks, etc.)
-          #    This is what gives you the full repo coverage.
-          echo "=== collect all Release outputs ==="
-          rsync -a --prune-empty-dirs \
-            --include '*/' \
-            --include '*.dll' \
-            --include '*.pdb' \
-            --include '*.deps.json' \
-            --include '*.runtimeconfig.json' \
-            --exclude '*' \
-            ./src/ "${PUBLISH_ROOT}/src/"
+            -o "${RUNNER_TEMP}/publish"
 
           echo "=== summary ==="
-          echo "DLL count: $(find "${PUBLISH_ROOT}" -name '*.dll' | wc -l)"
+          echo "DLL count: $(find "${RUNNER_TEMP}/publish" -name '*.dll' | wc -l)"
           echo "Sample files:"
-          find "${PUBLISH_ROOT}" -maxdepth 4 -type f | head -n 500
+          find "${RUNNER_TEMP}/publish" -maxdepth 4 -type f | head -n 500
           
       - name: Run CodeLogic Scan (scan published + all built assemblies)
         env:
@@ -150,11 +117,11 @@ jobs:
             -e CODELOGIC_HOST \
             -e AGENT_UUID \
             -e AGENT_PASSWORD \
-            -v "${PUBLISH_ROOT}:/github/workspace" \
+            -v "${RUNNER_TEMP}/publish:/github/workspace" \
             thingsboard.app.codelogic.com/codelogic_dotnet:latest \
               analyze -p /github/workspace \
-                -a Modular-Monolith \
-                -s Modular-Monolith \
+                -a ModularMonolith \
+                -s ModularMonolith \
                 -f CompanyName.MyMeetings. \
                 -f CompanyNames.MyMeetings. \
                 -f DatabaseMigrator. \
