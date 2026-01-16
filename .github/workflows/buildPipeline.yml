@@ -143,32 +143,32 @@ jobs:
           docker run --rm -v "${PUBLISH_ROOT}:/github/workspace:ro" alpine:3.20 \
             sh -lc 'find /github/workspace -maxdepth 3 -type f | head -n 30'
           
-#      - name: Run CodeLogic Scan (scan published + all built assemblies)
-#        env:
-#          CODELOGIC_HOST: ${{ vars.CODELOGIC_HOST }}
-#          AGENT_UUID: ${{ secrets.AGENT_UUID }}
-#          AGENT_PASSWORD: ${{ secrets.AGENT_PASSWORD }}
-#        shell: bash
-#        run: |
-#          set -euo pipefail
+      - name: Run CodeLogic Scan (scan published + all built assemblies)
+        env:
+          CODELOGIC_HOST: ${{ vars.CODELOGIC_HOST }}
+          AGENT_UUID: ${{ secrets.AGENT_UUID }}
+          AGENT_PASSWORD: ${{ secrets.AGENT_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
 
-#          docker run --rm \
-#            -e CODELOGIC_HOST \
-#            -e AGENT_UUID \
-#            -e AGENT_PASSWORD \
-#            -v "${PUBLISH_ROOT}:/github/workspace" \
-#            thingsboard.app.codelogic.com/codelogic_dotnet:latest \
-#              analyze -p /github/workspace \
-#                -a Modular-Monolith \
-#                -s Modular-Monolith \
-#                -f CompanyName.MyMeetings. \
-#                -f CompanyNames.MyMeetings. \
-#                -f DatabaseMigrator. \
-#                -m CompanyName.MyMeetings. \
-#                -m CompanyNames.MyMeetings. \
-#                -m DatabaseMigrator. \
-#                --expunge-scan-sessions \
-#                --rescan
+          docker run --rm \
+            -e CODELOGIC_HOST \
+            -e AGENT_UUID \
+            -e AGENT_PASSWORD \
+            -v "${PUBLISH_ROOT}:/github/workspace" \
+            thingsboard.app.codelogic.com/codelogic_dotnet:latest \
+              analyze -p /github/workspace \
+                -a Modular-Monolith \
+                -s Modular-Monolith \
+                -f CompanyName.MyMeetings. \
+                -f CompanyNames.MyMeetings. \
+                -f DatabaseMigrator. \
+                -m CompanyName.MyMeetings. \
+                -m CompanyNames.MyMeetings. \
+                -m DatabaseMigrator. \
+                --expunge-scan-sessions \
+                --rescan
 
       # === Send Build Info (attach build log) ===
 #      - name: Send Build Info (with build log)
