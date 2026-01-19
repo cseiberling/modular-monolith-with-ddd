@@ -140,7 +140,7 @@ jobs:
 #          echo "Top-level payload:"
 #          find "${PUBLISH_ROOT}" -maxdepth 3 -type f | head -n 200
 
-      - name: Run CodeLogic Scan (published output + ref-path)
+      - name: Run CodeLogic Scan (published output + ref-path without breaking agent)
         env:
           CODELOGIC_HOST: ${{ vars.CODELOGIC_HOST }}
           AGENT_UUID: ${{ secrets.AGENT_UUID }}
@@ -155,8 +155,8 @@ jobs:
             -e CODELOGIC_HOST \
             -e AGENT_UUID \
             -e AGENT_PASSWORD \
-            -v "${PUBLISH_DIR}:/github/workspace" \
-            -v /usr/share/dotnet:/usr/share/dotnet \
+            -v "${PUBLISH_DIR}:/github/workspace:ro" \
+            -v /usr/share/dotnet:/ref-dotnet:ro \
             thingsboard.app.codelogic.com/codelogic_dotnet:latest \
               analyze -p /github/workspace \
                 -a ModularMonolith \
@@ -167,8 +167,8 @@ jobs:
                 -m CompanyName.MyMeetings. \
                 -m CompanyNames.MyMeetings. \
                 -m DatabaseMigrator. \
-                --ref-path /usr/share/dotnet/shared/Microsoft.NETCore.App \
-                --ref-path /usr/share/dotnet/shared/Microsoft.AspNetCore.App \
+                --ref-path /ref-dotnet/shared/Microsoft.NETCore.App \
+                --ref-path /ref-dotnet/shared/Microsoft.AspNetCore.App \
                 --expunge-scan-sessions \
                 --rescan
 
