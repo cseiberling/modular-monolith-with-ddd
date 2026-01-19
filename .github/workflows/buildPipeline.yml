@@ -123,16 +123,16 @@ jobs:
             -o "${PUBLISH_ROOT}/published/DatabaseMigrator" \
             --no-restore
 
-#          # Collect ALL built DLLs (modules/tests/buildingblocks/etc.) into a single folder
-#          # so the scanner sees everything but does NOT scan src/** directly.
-#          echo "=== collect all built dlls/deps/runtimeconfig from ./src ==="
-#          find ./src -type f \( \
-#              -name '*.dll' -o \
-#              -name '*.deps.json' -o \
-#              -name '*.runtimeconfig.json' -o \
-#              -name '*.pdb' \
-#            \) -path '*/bin/Release/*' -print0 \
-#            | xargs -0 -I{} cp -f "{}" "${PUBLISH_ROOT}/assemblies/" || true
+          # Collect ALL built DLLs (modules/tests/buildingblocks/etc.) into a single folder
+          # so the scanner sees everything but does NOT scan src/** directly.
+          echo "=== collect all built dlls/deps/runtimeconfig from ./src ==="
+          find ./src -type f \( \
+              -name '*.dll' -o \
+              -name '*.deps.json' -o \
+              -name '*.runtimeconfig.json' -o \
+              -name '*.pdb' \
+            \) -path '*/bin/Release/*' -print0 \
+            | xargs -0 -I{} cp -f "{}" "${PUBLISH_ROOT}/assemblies/" || true
 
 #          echo "=== payload summary ==="
 #          echo "Published DLL count: $(find "${PUBLISH_ROOT}/published" -name '*.dll' | wc -l)"
