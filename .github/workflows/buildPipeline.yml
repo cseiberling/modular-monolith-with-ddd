@@ -140,7 +140,7 @@ jobs:
           echo "Top-level payload:"
           find "${PUBLISH_ROOT}" -maxdepth 3 -type f | head -n 200
 
-      - name: Run CodeLogic Scan (scan ONLY staged payload)
+      - name: Run CodeLogic Scan (published output + ref-path)
         env:
           CODELOGIC_HOST: ${{ vars.CODELOGIC_HOST }}
           AGENT_UUID: ${{ secrets.AGENT_UUID }}
@@ -149,14 +149,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          # IMPORTANT:
-          # - We mount ONLY the staged payload folder to /github/workspace
-          # - We point -p at /github/workspace (no src/** exists inside this mount)
+          PUBLISH_DIR="${RUNNER_TEMP}/publish"
+
           docker run --rm \
             -e CODELOGIC_HOST \
             -e AGENT_UUID \
             -e AGENT_PASSWORD \
-            -v "${PUBLISH_ROOT}:/github/workspace" \
+            -v "${PUBLISH_DIR}:/github/workspace:ro" \
+            -v /usr/share/dotnet:/usr/share/dotnet:ro \
             thingsboard.app.codelogic.com/codelogic_dotnet:latest \
               analyze -p /github/workspace \
                 -a ModularMonolith \
@@ -167,6 +167,8 @@ jobs:
                 -m CompanyName.MyMeetings. \
                 -m CompanyNames.MyMeetings. \
                 -m DatabaseMigrator. \
+                --ref-path /usr/share/dotnet/shared/Microsoft.NETCore.App \
+                --ref-path /usr/share/dotnet/shared/Microsoft.AspNetCore.App \
                 --expunge-scan-sessions \
                 --rescan
 
