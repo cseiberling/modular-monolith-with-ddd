@@ -25,6 +25,7 @@ jobs:
       DOTNET_MULTILEVEL_LOOKUP: "0"
       DOTNET_NOLOGO: "1"
       DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "1"
+      CI: "true"
 
     steps:
       - name: Check out repository
@@ -48,7 +49,6 @@ jobs:
             }
           }
           EOF
-          echo "Wrote global.json:"
           cat global.json
 
       - name: Setup .NET SDK 8.0.417 (pinned)
@@ -64,7 +64,7 @@ jobs:
           dotnet --version
           dotnet --info
 
-      - name: Build solution (src/CompanyName.MyMeetings.sln) + capture log
+      - name: Build solution (restore+build) + capture log
         shell: bash
         run: |
           set -euo pipefail
@@ -90,21 +90,57 @@ jobs:
             -c Release \
             /p:TreatWarningsAsErrors=false \
             -p:NuGetAudit=false \
+            -p:DeployOnBuild=false \
             --no-restore \
             |& tee -a "${BUILD_LOG}"
-            
-          dotnet publish ./src/CompanyName.MyMeetings.sln \
-            -c Release \
-            -p:TreatWarningsAsErrors=false \
-            -p:NuGetAudit=false \
-            -o "${RUNNER_TEMP}/publish"
 
-          echo "=== summary ==="
-          echo "DLL count: $(find "${RUNNER_TEMP}/publish" -name '*.dll' | wc -l)"
-          echo "Sample files:"
-          find "${RUNNER_TEMP}/publish" -maxdepth 4 -type f | head -n 500
-          
-      - name: Run CodeLogic Scan (scan published + all built assemblies)
+      - name: Stage scan payload (publish entrypoints + collect all built assemblies)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PUBLISH_ROOT="${RUNNER_TEMP}/publish"
+          echo "PUBLISH_ROOT=${PUBLISH_ROOT}" >> "$GITHUB_ENV"
+          rm -rf "${PUBLISH_ROOT}"
+          mkdir -p "${PUBLISH_ROOT}/published" "${PUBLISH_ROOT}/assemblies"
+
+          # Publish runnable entrypoints (gives best dependency closure: deps/runtimeconfig)
+          echo "=== dotnet publish API ==="
+          dotnet publish ./src/API/CompanyName.MyMeetings.API/CompanyName.MyMeetings.API.csproj \
+            -c Release \
+            /p:TreatWarningsAsErrors=false \
+            -p:NuGetAudit=false \
+            -p:DeployOnBuild=false \
+            -o "${PUBLISH_ROOT}/published/API" \
+            --no-restore
+
+          echo "=== dotnet publish DatabaseMigrator ==="
+          dotnet publish ./src/Database/DatabaseMigrator/DatabaseMigrator.csproj \
+            -c Release \
+            /p:TreatWarningsAsErrors=false \
+            -p:NuGetAudit=false \
+            -p:DeployOnBuild=false \
+            -o "${PUBLISH_ROOT}/published/DatabaseMigrator" \
+            --no-restore
+
+          # Collect ALL built DLLs (modules/tests/buildingblocks/etc.) into a single folder
+          # so the scanner sees everything but does NOT scan src/** directly.
+          echo "=== collect all built dlls/deps/runtimeconfig from ./src ==="
+          find ./src -type f \( \
+              -name '*.dll' -o \
+              -name '*.deps.json' -o \
+              -name '*.runtimeconfig.json' -o \
+              -name '*.pdb' \
+            \) -path '*/bin/Release/*' -print0 \
+            | xargs -0 -I{} cp -f "{}" "${PUBLISH_ROOT}/assemblies/" || true
+
+          echo "=== payload summary ==="
+          echo "Published DLL count: $(find "${PUBLISH_ROOT}/published" -name '*.dll' | wc -l)"
+          echo "Collected DLL count: $(find "${PUBLISH_ROOT}/assemblies" -name '*.dll' | wc -l)"
+          echo "Top-level payload:"
+          find "${PUBLISH_ROOT}" -maxdepth 3 -type f | head -n 200
+
+      - name: Run CodeLogic Scan (scan ONLY staged payload)
         env:
           CODELOGIC_HOST: ${{ vars.CODELOGIC_HOST }}
           AGENT_UUID: ${{ secrets.AGENT_UUID }}
@@ -113,11 +149,14 @@ jobs:
         run: |
           set -euo pipefail
 
+          # IMPORTANT:
+          # - We mount ONLY the staged payload folder to /github/workspace
+          # - We point -p at /github/workspace (no src/** exists inside this mount)
           docker run --rm \
             -e CODELOGIC_HOST \
             -e AGENT_UUID \
             -e AGENT_PASSWORD \
-            -v "${RUNNER_TEMP}/publish:/github/workspace" \
+            -v "${PUBLISH_ROOT}:/github/workspace" \
             thingsboard.app.codelogic.com/codelogic_dotnet:latest \
               analyze -p /github/workspace \
                 -a ModularMonolith \
@@ -131,31 +170,29 @@ jobs:
                 --expunge-scan-sessions \
                 --rescan
 
-      # === Send Build Info (attach build log) ===
-#      - name: Send Build Info (with build log)
-#        if: always()
-#        env:
-#          CODELOGIC_HOST: ${{ vars.CODELOGIC_HOST }}
-#          AGENT_UUID: ${{ secrets.AGENT_UUID }}
-#          AGENT_PASSWORD: ${{ secrets.AGENT_PASSWORD }}
-#        shell: bash
-#        run: |
-#          set -euo pipefail
-
-          # if BUILD_LOG wasn't set for some reason, don't hard fail this step
-#          BUILD_LOG="${BUILD_LOG:-${RUNNER_TEMP}/ms-build.log}"
-
-#          docker run --pull always --rm \
-#            -e CODELOGIC_HOST \
-#            -e AGENT_UUID \
-#            -e AGENT_PASSWORD \
-#            -v "${GITHUB_WORKSPACE}:/scan" \
-#            -v "${RUNNER_TEMP}:/log_file_path" \
-#            thingsboard.app.codelogic.com/codelogic_dotnet:latest \
-#              send_build_info \
-#                --build-number="${{ github.run_number }}" \
-#                --pipeline-system="GitHub Actions" \
-#                --job-name="Build + CodeLogic Scan" \
-#                --build-status="${{ job.status }}" \
-#                --log-file="/log_file_path/$(basename "${BUILD_LOG}")" \
-#                --log-lines=50000
+      # Optional: Send Build Info with log
+      # - name: Send Build Info (with build log)
+      #   if: always()
+      #   env:
+      #     CODELOGIC_HOST: ${{ vars.CODELOGIC_HOST }}
+      #     AGENT_UUID: ${{ secrets.AGENT_UUID }}
+      #     AGENT_PASSWORD: ${{ secrets.AGENT_PASSWORD }}
+      #   shell: bash
+      #   run: |
+      #     set -euo pipefail
+      #     BUILD_LOG="${BUILD_LOG:-${RUNNER_TEMP}/ms-build.log}"
+      #
+      #     docker run --pull always --rm \
+      #       -e CODELOGIC_HOST \
+      #       -e AGENT_UUID \
+      #       -e AGENT_PASSWORD \
+      #       -v "${GITHUB_WORKSPACE}:/scan" \
+      #       -v "${RUNNER_TEMP}:/log_file_path" \
+      #       thingsboard.app.codelogic.com/codelogic_dotnet:latest \
+      #         send_build_info \
+      #           --build-number="${{ github.run_number }}" \
+      #           --pipeline-system="GitHub Actions" \
+      #           --job-name="Build + CodeLogic Scan" \
+      #           --build-status="${{ job.status }}" \
+      #           --log-file="/log_file_path/$(basename "${BUILD_LOG}")" \
+      #           --log-lines=50000
