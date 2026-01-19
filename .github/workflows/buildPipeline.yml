@@ -125,20 +125,20 @@ jobs:
 
           # Collect ALL built DLLs (modules/tests/buildingblocks/etc.) into a single folder
           # so the scanner sees everything but does NOT scan src/** directly.
-          echo "=== collect all built dlls/deps/runtimeconfig from ./src ==="
-          find ./src -type f \( \
-              -name '*.dll' -o \
-              -name '*.deps.json' -o \
-              -name '*.runtimeconfig.json' -o \
-              -name '*.pdb' \
-            \) -path '*/bin/Release/*' -print0 \
-            | xargs -0 -I{} cp -f "{}" "${PUBLISH_ROOT}/assemblies/" || true
+#          echo "=== collect all built dlls/deps/runtimeconfig from ./src ==="
+#          find ./src -type f \( \
+#              -name '*.dll' -o \
+#              -name '*.deps.json' -o \
+#              -name '*.runtimeconfig.json' -o \
+#              -name '*.pdb' \
+#            \) -path '*/bin/Release/*' -print0 \
+#            | xargs -0 -I{} cp -f "{}" "${PUBLISH_ROOT}/assemblies/" || true
 
-          echo "=== payload summary ==="
-          echo "Published DLL count: $(find "${PUBLISH_ROOT}/published" -name '*.dll' | wc -l)"
-          echo "Collected DLL count: $(find "${PUBLISH_ROOT}/assemblies" -name '*.dll' | wc -l)"
-          echo "Top-level payload:"
-          find "${PUBLISH_ROOT}" -maxdepth 3 -type f | head -n 200
+#          echo "=== payload summary ==="
+#          echo "Published DLL count: $(find "${PUBLISH_ROOT}/published" -name '*.dll' | wc -l)"
+#          echo "Collected DLL count: $(find "${PUBLISH_ROOT}/assemblies" -name '*.dll' | wc -l)"
+#          echo "Top-level payload:"
+#          find "${PUBLISH_ROOT}" -maxdepth 3 -type f | head -n 200
 
       - name: Run CodeLogic Scan (published output + ref-path)
         env:
