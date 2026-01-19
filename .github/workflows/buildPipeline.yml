@@ -155,8 +155,8 @@ jobs:
             -e CODELOGIC_HOST \
             -e AGENT_UUID \
             -e AGENT_PASSWORD \
-            -v "${PUBLISH_DIR}:/github/workspace:ro" \
-            -v /usr/share/dotnet:/usr/share/dotnet:ro \
+            -v "${PUBLISH_DIR}:/github/workspace" \
+            -v /usr/share/dotnet:/usr/share/dotnet \
             thingsboard.app.codelogic.com/codelogic_dotnet:latest \
               analyze -p /github/workspace \
                 -a ModularMonolith \
