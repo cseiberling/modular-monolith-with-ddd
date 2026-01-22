@@ -4,6 +4,8 @@
     "config:best-practices",
     ":dependencyDashboardApproval"
   ],
-  "baseBranches": ["codelogic"],
+  "baseBranchPatterns": [
+    "codelogic"
+  ],
   "dependencyDashboardTitle": "Renovate Dashboard (codelogic)"
 }
