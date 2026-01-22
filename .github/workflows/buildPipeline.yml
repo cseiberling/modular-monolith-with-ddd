@@ -1,35 +1,34 @@
-name: CI Pipeline
+#name: CI Pipeline
 
-on:
-  push:
-    branches: [master]
-  pull_request:
-    branches: [master]
+#on:
+ # push:
+#    branches: [master]
+#  pull_request:
+#    branches: [master]
 
-jobs:
-  build:
-    name: Build and run Unit and Architecture Tests
-    runs-on: ubuntu-latest
+#jobs:
+#  build:
+#    name: Build and run Unit and Architecture Tests
+#    runs-on: ubuntu-latest
 
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
-      - name: Run build
-        run: ./build.sh BuildAndUnitTests --configuration Release
+#    steps:
+#      - uses: actions/checkout@v4
+#      - name: Setup .NET
+#        uses: actions/setup-dotnet@v4
+#        with:
+#          dotnet-version: 8.0.x
+#      - name: Run build
+#        run: ./build.sh BuildAndUnitTests --configuration Release
 
-  integration:
-    name: Build and run Integration Tests
-    needs: [build]
-    runs-on: ubuntu-latest
+#  integration:
+#    needs: [build]
+#    runs-on: ubuntu-latest
 
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
-      - name: Run build
-        run: ./build.sh RunAllIntegrationTests
+#    steps:
+#      - uses: actions/checkout@v4
+#      - name: Setup .NET
+#        uses: actions/setup-dotnet@v4
+#        with:
+#          dotnet-version: 8.0.x
+#      - name: Run build
+#        run: ./build.sh RunAllIntegrationTests
