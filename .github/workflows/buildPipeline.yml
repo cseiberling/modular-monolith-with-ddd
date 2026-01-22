@@ -174,28 +174,28 @@ jobs:
                 --rescan
 
       # Optional: Send Build Info with log
-       - name: Send Build Info (with build log)
-         if: always()
-         env:
-           CODELOGIC_HOST: ${{ vars.CODELOGIC_HOST }}
-           AGENT_UUID: ${{ secrets.AGENT_UUID }}
-           AGENT_PASSWORD: ${{ secrets.AGENT_PASSWORD }}
-         shell: bash
-         run: |
-           set -euo pipefail
-           BUILD_LOG="${BUILD_LOG:-${RUNNER_TEMP}/ms-build.log}"
-      
-           docker run --pull always --rm \
-             -e CODELOGIC_HOST \
-             -e AGENT_UUID \
-             -e AGENT_PASSWORD \
-             -v "${GITHUB_WORKSPACE}:/scan" \
-             -v "${RUNNER_TEMP}:/log_file_path" \
-             thingsboard.app.codelogic.com/codelogic_dotnet:latest \
-               send_build_info \
-                 --build-number="${{ github.run_number }}" \
-                 --pipeline-system="GitHub Actions" \
-                 --job-name="Build + CodeLogic Scan" \
-                 --build-status="${{ job.status }}" \
-                 --log-file="/log_file_path/$(basename "${BUILD_LOG}")" \
-                 --log-lines=50000
+      - name: Send Build Info (with build log)
+        if: always()
+        env:
+          CODELOGIC_HOST: ${{ vars.CODELOGIC_HOST }}
+          AGENT_UUID: ${{ secrets.AGENT_UUID }}
+          AGENT_PASSWORD: ${{ secrets.AGENT_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_LOG="${BUILD_LOG:-${RUNNER_TEMP}/ms-build.log}"
+
+          docker run --pull always --rm \
+            -e CODELOGIC_HOST \
+            -e AGENT_UUID \
+            -e AGENT_PASSWORD \
+            -v "${GITHUB_WORKSPACE}:/scan" \
+            -v "${RUNNER_TEMP}:/log_file_path" \
+            thingsboard.app.codelogic.com/codelogic_dotnet:latest \
+              send_build_info \
+                --build-number="${{ github.run_number }}" \
+                --pipeline-system="GitHub Actions" \
+                --job-name="Build + CodeLogic Scan" \
+                --build-status="${{ job.status }}" \
+                --log-file="/log_file_path/$(basename "${BUILD_LOG}")" \
+                --log-lines=50000
