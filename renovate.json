@@ -7,10 +7,8 @@
   "baseBranchPatterns": ["^codelogic$"],
   "dependencyDashboardTitle": "Renovate Dashboard (codelogic)",
 
-  "reopenClosedPrs": false,
   "rebaseWhen": "never",
-  "prCreation": "not-pending",
+  "prCreation": "approval",
 
-  "semanticCommits": "disabled",
-  "prTitleStrict": true
+  "semanticCommits": "disabled"
 }
