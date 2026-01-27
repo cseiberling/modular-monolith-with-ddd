@@ -4,8 +4,13 @@
     "config:best-practices",
     ":dependencyDashboardApproval"
   ],
-  "baseBranchPatterns": [
-    "codelogic"
-  ],
-  "dependencyDashboardTitle": "Renovate Dashboard (codelogic)"
+  "baseBranchPatterns": ["^codelogic$"],
+  "dependencyDashboardTitle": "Renovate Dashboard (codelogic)",
+
+  "reopenClosedPrs": false,
+  "rebaseWhen": "never",
+  "prCreation": "not-pending",
+
+  "semanticCommits": "disabled",
+  "prTitleStrict": true
 }
