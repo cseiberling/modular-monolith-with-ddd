@@ -191,7 +191,7 @@ jobs:
             -e AGENT_PASSWORD \
             -v "${GITHUB_WORKSPACE}:/scan" \
             -v "${RUNNER_TEMP}:/log_file_path" \
-            thingsboard.app.codelogic.com/codelogic_dotnet:latest \
+            thingsboard.app.codelogic.com/codelogic_java:latest \
               send_build_info \
                 --build-number="${{ github.run_number }}" \
                 --pipeline-system="GitHub Actions" \
