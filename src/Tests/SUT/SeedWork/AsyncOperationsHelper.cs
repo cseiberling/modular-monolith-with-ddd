@@ -1,6 +1,6 @@
-﻿using System.Data.SqlClient;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Dapper;
+using Microsoft.Data.SqlClient;
 
 namespace CompanyName.MyMeetings.SUT.SeedWork
 {

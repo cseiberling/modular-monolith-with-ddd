@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Threading;
 using Dapper;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 
 namespace Utils
 {
