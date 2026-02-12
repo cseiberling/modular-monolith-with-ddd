@@ -135,12 +135,6 @@ jobs:
             \) -path '*/bin/Release/*' -print0 \
             | xargs -0 -I{} cp -f "{}" "${PUBLISH_ROOT}/assemblies/" || true
 
-#          echo "=== payload summary ==="
-#          echo "Published DLL count: $(find "${PUBLISH_ROOT}/published" -name '*.dll' | wc -l)"
-#          echo "Collected DLL count: $(find "${PUBLISH_ROOT}/assemblies" -name '*.dll' | wc -l)"
-#          echo "Top-level payload:"
-#          find "${PUBLISH_ROOT}" -maxdepth 3 -type f | head -n 200
-
       - name: Run CodeLogic Scan (published output + ref-path without breaking agent)
         env:
           CODELOGIC_HOST: ${{ vars.CODELOGIC_HOST }}
@@ -173,7 +167,6 @@ jobs:
                 --expunge-scan-sessions \
                 --rescan
 
-      # Optional: Send Build Info with log
       - name: Send Build Info (with build log)
         if: always()
         env:
@@ -183,7 +176,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           BUILD_LOG="${BUILD_LOG:-${RUNNER_TEMP}/ms-build.log}"
+          LOG_NAME="$(basename "${BUILD_LOG}")"
+
+          echo "BUILD_LOG=${BUILD_LOG}"
+          echo "LOG_NAME=${LOG_NAME}"
+          ls -la "${RUNNER_TEMP}" || true
+
+          # Fail this step if the log file isn't present (otherwise send_build_info will error anyway)
+          test -f "${BUILD_LOG}"
 
           docker run --pull always --rm \
             -e CODELOGIC_HOST \
@@ -197,5 +199,5 @@ jobs:
                 --pipeline-system="GitHub Actions" \
                 --job-name="Build + CodeLogic Scan" \
                 --build-status="${{ job.status }}" \
-                --log-file="/log_file_path/$(basename "${BUILD_LOG}")" \
+                --log-file="/log_file_path/${LOG_NAME}" \
                 --log-lines=50000
