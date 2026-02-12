@@ -1,6 +1,6 @@
 ﻿using System.Data;
-using System.Data.SqlClient;
 using CompanyName.MyMeetings.BuildingBlocks.Application.Data;
+using Microsoft.Data.SqlClient;
 
 namespace CompanyName.MyMeetings.BuildingBlocks.Infrastructure
 {

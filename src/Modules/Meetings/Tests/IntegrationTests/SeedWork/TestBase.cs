@@ -1,5 +1,4 @@
 using System.Data;
-using System.Data.SqlClient;
 using CompanyName.MyMeetings.BuildingBlocks.Application.Emails;
 using CompanyName.MyMeetings.BuildingBlocks.Domain;
 using CompanyName.MyMeetings.BuildingBlocks.Infrastructure.Emails;
@@ -11,6 +10,7 @@ using CompanyName.MyMeetings.Modules.Meetings.Infrastructure;
 using CompanyName.MyMeetings.Modules.Meetings.Infrastructure.Configuration;
 using Dapper;
 using MediatR;
+using Microsoft.Data.SqlClient;
 using NSubstitute;
 using NUnit.Framework;
 using Serilog;

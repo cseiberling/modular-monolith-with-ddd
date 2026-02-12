@@ -1,7 +1,7 @@
-﻿using System.Data.SqlClient;
-using CompanyName.MyMeetings.Modules.Registrations.Application.UserRegistrations.GetUserRegistration;
+﻿using CompanyName.MyMeetings.Modules.Registrations.Application.UserRegistrations.GetUserRegistration;
 using CompanyName.MyMeetings.Modules.Registrations.Application.UserRegistrations.RegisterNewUser;
 using CompanyNames.MyMeetings.Modules.Registrations.IntegrationTests.SeedWork;
+using Microsoft.Data.SqlClient;
 using NUnit.Framework;
 
 namespace CompanyNames.MyMeetings.Modules.Registrations.IntegrationTests.UserRegistrations

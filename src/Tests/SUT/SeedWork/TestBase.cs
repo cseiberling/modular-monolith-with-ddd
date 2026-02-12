@@ -1,5 +1,4 @@
-﻿using System.Data.SqlClient;
-using CompanyName.MyMeetings.BuildingBlocks.Application.Emails;
+﻿using CompanyName.MyMeetings.BuildingBlocks.Application.Emails;
 using CompanyName.MyMeetings.BuildingBlocks.Infrastructure.Emails;
 using CompanyName.MyMeetings.BuildingBlocks.Infrastructure.EventBus;
 using CompanyName.MyMeetings.Modules.Administration.Application.Contracts;
@@ -20,6 +19,7 @@ using CompanyName.MyMeetings.Modules.UserAccess.Infrastructure;
 using CompanyName.MyMeetings.Modules.UserAccess.Infrastructure.Configuration;
 using CompanyName.MyMeetings.SUT.SeedWork.Probing;
 using Dapper;
+using Microsoft.Data.SqlClient;
 using NSubstitute;
 using NUnit.Framework;
 using Serilog;
