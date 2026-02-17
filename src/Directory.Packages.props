@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="$(MSBuildProjectName.EndsWith('BuildingBlocks.Domain'))">
-    <PackageReference Include="MediatR" Version="12.2.0" />
+    <PackageReference Include="MediatR" Version="14.0.0" />
   </ItemGroup>
   <ItemGroup Condition="$(MSBuildProjectName.EndsWith('BuildingBlocks.Application'))">
     <PackageReference Include="Dapper" Version="2.1.24" />
