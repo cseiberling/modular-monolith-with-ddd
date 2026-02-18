@@ -1,4 +1,4 @@
-<Project Sdk="MSBuild.Sdk.SqlProj/2.6.1">
+<Project Sdk="MSBuild.Sdk.SqlProj/4.0.0">
   <PropertyGroup>
     <SqlServerVersion>Sql130</SqlServerVersion>
     <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
