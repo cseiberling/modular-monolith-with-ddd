@@ -2,7 +2,7 @@ name: CI Pipeline (Build + CodeLogic Scan)
 on:
   push:
     branches:
-      #- codelogic
+      - codelogic
       - renovate/**
 
   pull_request:
