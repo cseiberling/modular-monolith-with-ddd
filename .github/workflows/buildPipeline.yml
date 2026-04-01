@@ -38,26 +38,12 @@ jobs:
           df -h
           docker system df || true
 
-      - name: Create global.json (pin SDK 8.0.417)
-        shell: bash
-        run: |
-          set -euo pipefail
-          cat > global.json <<'EOF'
-          {
-            "sdk": {
-              "version": "8.0.417",
-              "rollForward": "disable"
-            }
-          }
-          EOF
-          cat global.json
-
-      - name: Setup .NET SDK 8.0.417 (pinned)
+      - name: Setup .NET SDK (version from src/global.json)
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.0.417"
+          dotnet-version-file: src/global.json
 
-      - name: Confirm dotnet resolution
+      - name: Confirm .NET SDK resolution
         shell: bash
         run: |
           set -euo pipefail
@@ -70,7 +56,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          BUILD_LOG="${RUNNER_TEMP}/ms-build.log"
+          mkdir -p "${GITHUB_WORKSPACE}/logs"
+          BUILD_LOG="${GITHUB_WORKSPACE}/logs/build.log"
           echo "BUILD_LOG=${BUILD_LOG}" >> "$GITHUB_ENV"
 
           SLN_FILE="./src/CompanyName.MyMeetings.sln"
@@ -146,7 +133,7 @@ jobs:
 
           PUBLISH_DIR="${RUNNER_TEMP}/publish"
 
-          docker run --rm \
+          docker run --pull always --rm \
             -e CODELOGIC_HOST \
             -e AGENT_UUID \
             -e AGENT_PASSWORD \
@@ -164,8 +151,7 @@ jobs:
                 -m DatabaseMigrator. \
                 --ref-path /ref-dotnet/shared/Microsoft.NETCore.App \
                 --ref-path /ref-dotnet/shared/Microsoft.AspNetCore.App \
-                --expunge-scan-sessions \
-                --rescan
+                --expunge-scan-sessions 
                 
       - name: Send Build Info (with build log)
         if: always()
@@ -177,25 +163,64 @@ jobs:
         run: |
           set -euo pipefail
 
-          BUILD_LOG="${BUILD_LOG:-${RUNNER_TEMP}/ms-build.log}"
-          LOG_NAME="$(basename "${BUILD_LOG}")"
+          mkdir -p "${GITHUB_WORKSPACE}/logs"
+          if [[ ! -f "${GITHUB_WORKSPACE}/logs/build.log" ]]; then
+            echo "No build log was produced (a step may have failed before the build)." \
+              > "${GITHUB_WORKSPACE}/logs/build.log"
+          fi
 
-          echo "BUILD_LOG=${BUILD_LOG}"
-          echo "LOG_NAME=${LOG_NAME}"
-          ls -la "${RUNNER_TEMP}" || true
-          test -f "${BUILD_LOG}"
+          GH_STATUS="${{ job.status }}"
+          case "${GH_STATUS}" in
+            success)   BUILD_STATUS="SUCCESS" ;;
+            failure)   BUILD_STATUS="FAILURE" ;;
+            cancelled) BUILD_STATUS="CANCELLED" ;;
+            *)         BUILD_STATUS="${GH_STATUS^^}" ;;
+          esac
 
           docker run --pull always --rm \
             -e CODELOGIC_HOST \
             -e AGENT_UUID \
             -e AGENT_PASSWORD \
             -v "${GITHUB_WORKSPACE}:/scan" \
-            -v "${RUNNER_TEMP}:/log_file_path" \
-            thingsboard.app.codelogic.com/codelogic_java:latest \
+            thingsboard.app.codelogic.com/codelogic_dotnet:latest \
               send_build_info \
+                --agent-uuid="${AGENT_UUID}" \
+                --agent-password="${AGENT_PASSWORD}" \
+                --server="${CODELOGIC_HOST}" \
+                --path=/scan \
                 --build-number="${{ github.run_number }}" \
                 --pipeline-system="GitHub Actions" \
-                --job-name="Build + CodeLogic Scan" \
-                --build-status="${{ job.status }}" \
-                --log-file="${LOG_NAME}" \
-                --log-lines=50000
+                --job-name="${{ github.repository }} — ${{ github.workflow }}" \
+                --build-status="${BUILD_STATUS}" \
+                --log-file=/scan/logs/build.log \
+                --log-lines=50000 \
+                --timeout=300 \
+                --verbose
+
+      - name: CodeLogic CI summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## CodeLogic CI"
+            echo ""
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| Repository | \`${{ github.repository }}\` |"
+            echo "| Workflow | \`${{ github.workflow }}\` |"
+            echo "| Run | ${{ github.run_id }} (attempt ${{ github.run_attempt }}) |"
+            echo "| Ref | \`${{ github.ref }}\` |"
+            echo "| SHA | \`${{ github.sha }}\` |"
+            echo "| Job status | **${{ job.status }}** |"
+            echo ""
+            echo "Build log is sent to CodeLogic via \`send_build_info\` when credentials are configured."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload build log artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-build-log
+          path: logs/build.log
+          if-no-files-found: ignore
+          retention-days: 14
