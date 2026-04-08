@@ -41,7 +41,7 @@ jobs:
       - name: Setup .NET SDK (version from src/global.json)
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version-file: src/global.json
+          global-json-file: src/global.json
 
       - name: Confirm .NET SDK resolution
         shell: bash
