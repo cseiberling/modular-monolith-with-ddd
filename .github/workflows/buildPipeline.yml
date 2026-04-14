@@ -16,11 +16,20 @@ concurrency:
   group: build-scan-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref }}
   cancel-in-progress: true
 
+env:
+  BUILD_CONFIGURATION: Release
+  # Single folder on the runner: all project outputs (libs + apps) for CodeLogic and artifacts.
+  PUBLISH_OUTPUT: artifacts/out
+
 jobs:
   build-and-scan:
     name: Build + CodeLogic Scan
     runs-on: ubuntu-latest
-    environment: CodeLogic Scan Env
+    # TEMP: uncomment when re-enabling CodeLogic steps below
+    # environment: CodeLogic Scan Env
+
+    permissions:
+      contents: read
 
     env:
       DOTNET_MULTILEVEL_LOOKUP: "0"
@@ -38,10 +47,58 @@ jobs:
           df -h
           docker system df || true
 
-      - name: Setup .NET SDK (version from src/global.json)
+      - name: Resolve .NET SDK (global.json or TargetFramework)
+        id: dotnet
+        shell: bash
+        run: |
+          set -euo pipefail
+          for candidate in global.json src/global.json; do
+            if [ -f "$candidate" ]; then
+              echo "Using SDK from $candidate"
+              echo "setup_mode=global-json" >> "$GITHUB_OUTPUT"
+              echo "global_json_path=$candidate" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "No global.json; deriving SDK channel from TargetFramework(s) in .csproj / .props"
+          tfms=$(
+            { grep -RhoP '<TargetFramework>\K[^<]+' --include='*.csproj' --include='*.props' . 2>/dev/null || true
+              grep -RhoP '<TargetFrameworks>\K[^<]+' --include='*.csproj' --include='*.props' . 2>/dev/null || true
+            } | tr ';' '\n' | tr -d ' \r' | grep -E '^net[0-9]+\.[0-9]+$' | sort -u
+          )
+          if [ -z "$tfms" ]; then
+            echo "Could not find TargetFramework(s). Add a global.json or netX.Y TFM in a .csproj."
+            exit 1
+          fi
+          max_major=0
+          max_minor=0
+          while IFS= read -r tfm; do
+            [ -z "$tfm" ] && continue
+            if [[ "$tfm" =~ ^net([0-9]+)\.([0-9]+)$ ]]; then
+              major="${BASH_REMATCH[1]}"
+              minor="${BASH_REMATCH[2]}"
+              if [ "$major" -gt "$max_major" ] || { [ "$major" -eq "$max_major" ] && [ "$minor" -gt "$max_minor" ]; }; then
+                max_major=$major
+                max_minor=$minor
+              fi
+            fi
+          done <<< "$tfms"
+          channel="${max_major}.${max_minor}.x"
+          echo "Highest TFM implies SDK channel: $channel (from: $(echo "$tfms" | tr '\n' ' '))"
+          echo "setup_mode=channel" >> "$GITHUB_OUTPUT"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+
+      - name: Setup .NET (global.json)
+        if: steps.dotnet.outputs.setup_mode == 'global-json'
         uses: actions/setup-dotnet@v4
         with:
-          global-json-file: src/global.json
+          global-json-file: ${{ steps.dotnet.outputs.global_json_path }}
+
+      - name: Setup .NET (derived channel)
+        if: steps.dotnet.outputs.setup_mode == 'channel'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ steps.dotnet.outputs.channel }}
 
       - name: Confirm .NET SDK resolution
         shell: bash
@@ -51,7 +108,23 @@ jobs:
           dotnet --version
           dotnet --info
 
-      - name: Build solution (restore+build) + capture log
+      - name: Restore all solutions
+        shell: bash
+        run: |
+          set -euo pipefail
+          count=0
+          while IFS= read -r sln; do
+            [ -z "$sln" ] && continue
+            count=$((count + 1))
+            echo "Restoring: $sln"
+            dotnet restore "$sln" -p:NuGetAudit=false
+          done < <(find . -name "*.sln" -not -path "./.git/*" | sort)
+          if [ "$count" -eq 0 ]; then
+            echo "No solution files found."
+            exit 1
+          fi
+
+      - name: Build all solutions (capture log for CodeLogic)
         shell: bash
         run: |
           set -euo pipefail
@@ -60,69 +133,46 @@ jobs:
           BUILD_LOG="${GITHUB_WORKSPACE}/logs/build.log"
           echo "BUILD_LOG=${BUILD_LOG}" >> "$GITHUB_ENV"
 
-          SLN_FILE="./src/CompanyName.MyMeetings.sln"
-          if [[ ! -f "${SLN_FILE}" ]]; then
-            echo "ERROR: Solution not found at ${SLN_FILE}"
-            ls -la
-            ls -la ./src || true
-            exit 1
-          fi
+          : > "${BUILD_LOG}"
+          while IFS= read -r sln; do
+            [ -z "$sln" ] && continue
+            echo "=== dotnet build $sln ===" |& tee -a "${BUILD_LOG}"
+            dotnet build "$sln" \
+              -c "${{ env.BUILD_CONFIGURATION }}" \
+              /p:TreatWarningsAsErrors=false \
+              -p:NuGetAudit=false \
+              -p:DeployOnBuild=false \
+              --no-restore |& tee -a "${BUILD_LOG}"
+          done < <(find . -name "*.sln" -not -path "./.git/*" | sort)
 
-          echo "=== dotnet restore ${SLN_FILE} ===" |& tee "${BUILD_LOG}"
-          dotnet restore "${SLN_FILE}" \
-            -p:NuGetAudit=false \
-            |& tee -a "${BUILD_LOG}"
-
-          echo "=== dotnet build ${SLN_FILE} ===" |& tee -a "${BUILD_LOG}"
-          dotnet build "${SLN_FILE}" \
-            -c Release \
-            /p:TreatWarningsAsErrors=false \
-            -p:NuGetAudit=false \
-            -p:DeployOnBuild=false \
-            --no-restore \
-            |& tee -a "${BUILD_LOG}"
-
-      - name: Stage scan payload (publish entrypoints + collect all built assemblies)
+      - name: Publish all solutions to common output
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p "${{ env.PUBLISH_OUTPUT }}"
+          while IFS= read -r sln; do
+            [ -z "$sln" ] && continue
+            echo "Publishing solution: $sln -> ${{ env.PUBLISH_OUTPUT }}"
+            dotnet publish "$sln" \
+              -c "${{ env.BUILD_CONFIGURATION }}" \
+              --no-build \
+              -o "${{ env.PUBLISH_OUTPUT }}" \
+              /p:TreatWarningsAsErrors=false \
+              -p:NuGetAudit=false \
+              -p:DeployOnBuild=false \
+              -p:DeployOnPublish=False
+          done < <(find . -name "*.sln" -not -path "./.git/*" | sort)
 
-          PUBLISH_ROOT="${RUNNER_TEMP}/publish"
-          echo "PUBLISH_ROOT=${PUBLISH_ROOT}" >> "$GITHUB_ENV"
-          rm -rf "${PUBLISH_ROOT}"
-          mkdir -p "${PUBLISH_ROOT}/published" "${PUBLISH_ROOT}/assemblies"
+      - name: Upload publish output
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-publish
+          path: ${{ env.PUBLISH_OUTPUT }}
+          if-no-files-found: error
 
-          # Publish runnable entrypoints (gives best dependency closure: deps/runtimeconfig)
-          echo "=== dotnet publish API ==="
-          dotnet publish ./src/API/CompanyName.MyMeetings.API/CompanyName.MyMeetings.API.csproj \
-            -c Release \
-            /p:TreatWarningsAsErrors=false \
-            -p:NuGetAudit=false \
-            -p:DeployOnBuild=false \
-            -o "${PUBLISH_ROOT}/published/API" \
-            --no-restore
-
-          echo "=== dotnet publish DatabaseMigrator ==="
-          dotnet publish ./src/Database/DatabaseMigrator/DatabaseMigrator.csproj \
-            -c Release \
-            /p:TreatWarningsAsErrors=false \
-            -p:NuGetAudit=false \
-            -p:DeployOnBuild=false \
-            -o "${PUBLISH_ROOT}/published/DatabaseMigrator" \
-            --no-restore
-
-          # Collect ALL built DLLs (modules/tests/buildingblocks/etc.) into a single folder
-          # so the scanner sees everything but does NOT scan src/** directly.
-          echo "=== collect all built dlls/deps/runtimeconfig from ./src ==="
-          find ./src -type f \( \
-              -name '*.dll' -o \
-              -name '*.deps.json' -o \
-              -name '*.runtimeconfig.json' -o \
-              -name '*.pdb' \
-            \) -path '*/bin/Release/*' -print0 \
-            | xargs -0 -I{} cp -f "{}" "${PUBLISH_ROOT}/assemblies/" || true
-
+      # TEMP: remove `if: false` to re-enable CodeLogic (restore `environment:` on the job too).
       - name: Run CodeLogic Scan (published output + ref-path without breaking agent)
+        if: false
         env:
           CODELOGIC_HOST: ${{ vars.CODELOGIC_HOST }}
           AGENT_UUID: ${{ secrets.AGENT_UUID }}
@@ -131,7 +181,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          PUBLISH_DIR="${RUNNER_TEMP}/publish"
+          PUBLISH_DIR="${GITHUB_WORKSPACE}/${{ env.PUBLISH_OUTPUT }}"
 
           docker run --pull always --rm \
             -e CODELOGIC_HOST \
@@ -151,10 +201,10 @@ jobs:
                 -m DatabaseMigrator. \
                 --ref-path /ref-dotnet/shared/Microsoft.NETCore.App \
                 --ref-path /ref-dotnet/shared/Microsoft.AspNetCore.App \
-                --expunge-scan-sessions 
-                
+                --expunge-scan-sessions
+
       - name: Send Build Info (with build log)
-        if: always()
+        if: false # was: always() — restore when re-enabling CodeLogic
         env:
           CODELOGIC_HOST: ${{ vars.CODELOGIC_HOST }}
           AGENT_UUID: ${{ secrets.AGENT_UUID }}
@@ -198,7 +248,7 @@ jobs:
                 --verbose
 
       - name: CodeLogic CI summary
-        if: always()
+        if: false # was: always() — restore when re-enabling CodeLogic
         shell: bash
         run: |
           {

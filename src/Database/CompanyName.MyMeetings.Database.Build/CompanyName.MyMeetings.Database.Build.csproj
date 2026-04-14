@@ -6,6 +6,8 @@
 
   <PropertyGroup Condition="'$(CI)' == 'true'">
     <DeployOnBuild>false</DeployOnBuild>
+    <!-- dotnet publish invokes SqlProj Publish target; keep CI from targeting a SQL Server -->
+    <DeployOnPublish>False</DeployOnPublish>
   </PropertyGroup>
 
   <ItemGroup>
