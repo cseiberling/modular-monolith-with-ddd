@@ -108,60 +108,66 @@ jobs:
           dotnet --version
           dotnet --info
 
-      - name: Restore all solutions
+      # One log file for CodeLogic send_build_info: restore + build + publish (failure in restore
+      # previously left no build.log because the Build step never ran).
+      - name: Restore, build, publish (capture build.log for CodeLogic)
         shell: bash
         run: |
           set -euo pipefail
-          count=0
-          while IFS= read -r sln; do
-            [ -z "$sln" ] && continue
-            count=$((count + 1))
-            echo "Restoring: $sln"
-            dotnet restore "$sln" -p:NuGetAudit=false
-          done < <(find . -name "*.sln" -not -path "./.git/*" | sort)
-          if [ "$count" -eq 0 ]; then
-            echo "No solution files found."
-            exit 1
-          fi
-
-      - name: Build all solutions (capture log for CodeLogic)
-        shell: bash
-        run: |
-          set -euo pipefail
+          set -o pipefail
 
           mkdir -p "${GITHUB_WORKSPACE}/logs"
           BUILD_LOG="${GITHUB_WORKSPACE}/logs/build.log"
           echo "BUILD_LOG=${BUILD_LOG}" >> "$GITHUB_ENV"
-
-          : > "${BUILD_LOG}"
-          while IFS= read -r sln; do
-            [ -z "$sln" ] && continue
-            echo "=== dotnet build $sln ===" |& tee -a "${BUILD_LOG}"
-            dotnet build "$sln" \
-              -c "${{ env.BUILD_CONFIGURATION }}" \
-              /p:TreatWarningsAsErrors=false \
-              -p:NuGetAudit=false \
-              -p:DeployOnBuild=false \
-              --no-restore |& tee -a "${BUILD_LOG}"
-          done < <(find . -name "*.sln" -not -path "./.git/*" | sort)
-
-      - name: Publish all solutions to common output
-        shell: bash
-        run: |
-          set -euo pipefail
           mkdir -p "${{ env.PUBLISH_OUTPUT }}"
-          while IFS= read -r sln; do
-            [ -z "$sln" ] && continue
-            echo "Publishing solution: $sln -> ${{ env.PUBLISH_OUTPUT }}"
-            dotnet publish "$sln" \
-              -c "${{ env.BUILD_CONFIGURATION }}" \
-              --no-build \
-              -o "${{ env.PUBLISH_OUTPUT }}" \
-              /p:TreatWarningsAsErrors=false \
-              -p:NuGetAudit=false \
-              -p:DeployOnBuild=false \
-              -p:DeployOnPublish=False
-          done < <(find . -name "*.sln" -not -path "./.git/*" | sort)
+
+          {
+            echo "========== CI build log =========="
+            echo "Repository: ${{ github.repository }}"
+            echo "Workflow: ${{ github.workflow }}  Run: ${{ github.run_id }}  Attempt: ${{ github.run_attempt }}"
+            echo "Ref: ${{ github.ref }}  SHA: ${{ github.sha }}"
+            echo "========== dotnet --version =========="
+            dotnet --version
+            echo "========== dotnet --info =========="
+            dotnet --info
+            echo "========== Restore all solutions =========="
+            count=0
+            while IFS= read -r sln; do
+              [ -z "$sln" ] && continue
+              count=$((count + 1))
+              echo "Restoring: $sln"
+              dotnet restore "$sln" -p:NuGetAudit=false
+            done < <(find . -name "*.sln" -not -path "./.git/*" | sort)
+            if [ "$count" -eq 0 ]; then
+              echo "ERROR: No solution files found."
+              exit 1
+            fi
+            echo "========== Build all solutions =========="
+            while IFS= read -r sln; do
+              [ -z "$sln" ] && continue
+              echo "=== dotnet build $sln ==="
+              dotnet build "$sln" \
+                -c "${{ env.BUILD_CONFIGURATION }}" \
+                /p:TreatWarningsAsErrors=false \
+                -p:NuGetAudit=false \
+                -p:DeployOnBuild=false \
+                --no-restore
+            done < <(find . -name "*.sln" -not -path "./.git/*" | sort)
+            echo "========== Publish all solutions =========="
+            while IFS= read -r sln; do
+              [ -z "$sln" ] && continue
+              echo "Publishing solution: $sln -> ${{ env.PUBLISH_OUTPUT }}"
+              dotnet publish "$sln" \
+                -c "${{ env.BUILD_CONFIGURATION }}" \
+                --no-build \
+                -o "${{ env.PUBLISH_OUTPUT }}" \
+                /p:TreatWarningsAsErrors=false \
+                -p:NuGetAudit=false \
+                -p:DeployOnBuild=false \
+                -p:DeployOnPublish=False
+            done < <(find . -name "*.sln" -not -path "./.git/*" | sort)
+            echo "========== Done =========="
+          } 2>&1 | tee -a "${BUILD_LOG}"
 
       - name: Upload publish output
         uses: actions/upload-artifact@v4
@@ -170,7 +176,6 @@ jobs:
           path: ${{ env.PUBLISH_OUTPUT }}
           if-no-files-found: error
 
-      # TEMP: remove `if: false` to re-enable CodeLogic (restore `environment:` on the job too).
       - name: Run CodeLogic Scan (published output + ref-path without breaking agent)
         if: always()
         env:
@@ -204,7 +209,7 @@ jobs:
                 --expunge-scan-sessions
 
       - name: Send Build Info (with build log)
-        if: always() # was: always() — restore when re-enabling CodeLogic
+        if: always()
         env:
           CODELOGIC_HOST: ${{ vars.CODELOGIC_HOST }}
           AGENT_UUID: ${{ secrets.AGENT_UUID }}
@@ -214,9 +219,13 @@ jobs:
           set -euo pipefail
 
           mkdir -p "${GITHUB_WORKSPACE}/logs"
-          if [[ ! -f "${GITHUB_WORKSPACE}/logs/build.log" ]]; then
-            echo "No build log was produced (a step may have failed before the build)." \
-              > "${GITHUB_WORKSPACE}/logs/build.log"
+          # Missing/empty log should be rare now (restore+build+publish write one file).
+          if [[ ! -s "${GITHUB_WORKSPACE}/logs/build.log" ]]; then
+            {
+              echo "WARNING: logs/build.log was missing or empty when send_build_info ran."
+              echo "Job status: ${{ job.status }}"
+              echo "Check earlier steps (checkout, SDK setup, or a cancelled job)."
+            } > "${GITHUB_WORKSPACE}/logs/build.log"
           fi
 
           GH_STATUS="${{ job.status }}"
@@ -248,7 +257,7 @@ jobs:
                 --verbose
 
       - name: CodeLogic CI summary
-        if: always() # was: always() — restore when re-enabling CodeLogic
+        if: always()
         shell: bash
         run: |
           {
