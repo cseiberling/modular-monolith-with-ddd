@@ -1,11 +1,11 @@
 #See https://aka.ms/containerfastmode to understand how Visual Studio uses this Dockerfile to build your images for faster debugging.
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:c433886fdfe33c6427966a412328867b2be9a64f540a105d08943c2dc6fba39b AS base
 WORKDIR /app
 EXPOSE 80
 EXPOSE 443
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:127d7d4d601ae26b8e04c54efb37e9ce8766931bded0ee59fcd799afd21d6850 AS build
 WORKDIR /src
 COPY ["API/CompanyName.MyMeetings.API/CompanyName.MyMeetings.API.csproj", "API/CompanyName.MyMeetings.API/"]
 COPY ["Modules/UserAccess/Application/CompanyName.MyMeetings.Modules.UserAccess.Application.csproj", "Modules/UserAccess/Application/"]
