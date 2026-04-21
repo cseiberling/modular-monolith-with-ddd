@@ -9,9 +9,9 @@ ENV MSSQL_TCP_PORT=1433
 
 ADD entrypoint.sh /
 ADD healthcheck.sh /
-RUN chmod +x /healthcheck.sh
 
+# Invoke with bash so chmod +x is not needed (chmod can fail on some Docker Desktop builds).
 HEALTHCHECK --interval=5s --timeout=5s --start-period=45s --retries=36 \
-  CMD /healthcheck.sh
+  CMD /bin/bash /healthcheck.sh
 
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
