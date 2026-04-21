@@ -2191,34 +2191,37 @@ The compose file sets **`Meetings_ConnectionStrings__MeetingsConnectionString`**
 
 ### CodeLogic scanning (optional)
 
-This repository includes optional [CodeLogic](https://docs.codelogic.com/) integration: a **.NET binary agent** (published assemblies are scanned from **`/app`** in the container) and a **SQL agent** (official image name **`codelogic_sql`**).
+This repository includes optional [CodeLogic](https://docs.codelogic.com/) integration: a **.NET binary agent** and a **SQL agent** (image name **`codelogic_sql`**).
 
-1. **Credentials** — In CodeLogic Admin → Installers, copy **`CODELOGIC_HOST`**, **`AGENT_UUID`**, and **`AGENT_PASSWORD`**, and the registry host for Docker images if yours differs from the defaults.
+**Use host-side `docker run … analyze …` (same as CI)** — Do not override the image **ENTRYPOINT** (e.g. via Compose) or a bare `analyze` command is often missing on `PATH`. [`scripts/codelogic/run-dotnet-analyze.sh`](scripts/codelogic/run-dotnet-analyze.sh) runs the agent the same way as [`.github/workflows/buildPipeline.yml`](.github/workflows/buildPipeline.yml).
 
-2. **Local configuration** — Copy [`.env.codelogic.example`](.env.codelogic.example) to **`.env.codelogic`** (gitignored), fill in values, and set **`CODELOGIC_PUBLISH_PATH`** if your publish output is not **`./artifacts/out`**.
+1. **Credentials** — In CodeLogic Admin → Installers, copy **`CODELOGIC_HOST`**, **`AGENT_UUID`**, and **`AGENT_PASSWORD`**, and set **`CODELOGIC_DOTNET_IMAGE` / `CODELOGIC_SQL_IMAGE`** if your registry differs.
 
-3. **Database identities for the .NET scan** — In the CodeLogic UI, copy **database identity** values from **NodeDetails**. Put **one JDBC-style identity per line** in **`CODELOGIC_DATABASE_IDENTITIES`** (this adds `-d` flags and improves database relationship mapping). Example for SQL Server on the Compose network:
+2. **Configuration** — Copy [`.env.codelogic.example`](.env.codelogic.example) to **`.env.codelogic`** (gitignored), fill in values.
+
+3. **Database identities (.NET)** — From **NodeDetails**, put **one JDBC identity per line** in **`CODELOGIC_DATABASE_IDENTITIES`**. Example (Compose network):
 
    ```text
    jdbc:sqlserver://mymeetingsdb:1433;databaseName=MyMeetings;encrypt=false;trustServerCertificate=true
    ```
 
-4. **Run scans** — Use both compose files and pass **`.env.codelogic`** so paths and image names interpolate correctly:
+4. **.NET scan** — After `dotnet publish` to `./artifacts/out` (see [Building the solution](#building-the-solution)):
 
    ```shell
-   docker compose --env-file .env.codelogic -f docker-compose.yml -f docker-compose.codelogic.yml --profile codelogic run --rm codelogic-dotnet
+   ./scripts/codelogic/run-dotnet-scan.sh
    ```
 
-   Start **mymeetingsdb** (healthy) before the SQL scan:
+   On Linux, if **`/usr/share/dotnet`** exists, it is mounted for **`--ref-path`** (like CI). Override with **`CODELOGIC_REF_DOTNET_HOST`** if needed.
+
+5. **SQL scan** — Start the database first (`docker compose up -d` until **mymeetingsdb** is healthy). The SQL agent container must join the same Docker network so **`mymeetingsdb`** resolves; set **`CODELOGIC_DOCKER_NETWORK`** in **`.env.codelogic`** (see `docker network ls`, e.g. `modular-monolith-with-ddd_starfish-crm-network`), then:
 
    ```shell
-   docker compose up -d mymeetingsdb
-   docker compose --env-file .env.codelogic -f docker-compose.yml -f docker-compose.codelogic.yml --profile codelogic run --rm codelogic-sql
+   ./scripts/codelogic/run-sql-scan.sh
    ```
 
-   **`CODELOGIC_SQL_JDBC_URL`** should point at the same server/database (see `.env.codelogic.example`). For SQL Server, put the database in the JDBC URL; the SQL CLI’s **`-d`** option is intended for Oracle.
+   Configure **`CODELOGIC_SQL_JDBC_URL`**, **`CODELOGIC_SQL_USER`**, **`CODELOGIC_SQL_PASSWORD`**. For SQL Server, put the database in the JDBC URL (the SQL CLI **`-d`** flag is for Oracle only).
 
-5. **CI** — The GitHub Actions workflow can pass optional repository variable **`CODELOGIC_DATABASE_IDENTITIES`** (multiline, one identity per line) into the CodeLogic **analyze** step alongside the published artifact.
+6. **CI** — Optional repository variable **`CODELOGIC_DATABASE_IDENTITIES`** supplies **`-d`** lines; the workflow runs **`scripts/codelogic/run-dotnet-analyze.sh`** with the publish output and **`/usr/share/dotnet`**.
 
 ### Run Integration Tests in Docker
 
