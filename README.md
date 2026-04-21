@@ -97,6 +97,10 @@ FrontEnd application : [Modular Monolith With DDD: FrontEnd React application](h
 
 [5. How to Run](#5-how-to-run)
 
+&nbsp;&nbsp;[Building the solution](#building-the-solution)
+
+&nbsp;&nbsp;[CodeLogic scanning (optional)](#codelogic-scanning-optional)
+
 [6. Contribution](#6-contribution)
 
 [7. Roadmap](#7-roadmap)
@@ -2077,6 +2081,25 @@ List of technologies, frameworks and libraries used for implementation:
 
 - [Download](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) and install .NET 8.0 SDK
 
+### Building the solution
+
+From the repository root, the entry point is [`src/CompanyName.MyMeetings.sln`](src/CompanyName.MyMeetings.sln).
+
+Restore and build (Release):
+
+```shell
+dotnet restore src/CompanyName.MyMeetings.sln -p:NuGetAudit=false
+dotnet build src/CompanyName.MyMeetings.sln -c Release -p:NuGetAudit=false /p:TreatWarningsAsErrors=false
+```
+
+`-p:NuGetAudit=false` avoids NuGet advisory warnings being treated as errors during restore (the repo enables `TreatWarningsAsErrors`; third-party packages such as IdentityServer4 may still surface advisories). This matches how the Docker build and CI configure restore/build.
+
+To produce a publish folder for deployment or for [CodeLogic scanning](#codelogic-scanning-optional):
+
+```shell
+dotnet publish src/CompanyName.MyMeetings.sln -c Release -o artifacts/out -p:NuGetAudit=false /p:TreatWarningsAsErrors=false -p:DeployOnBuild=false -p:DeployOnPublish=false
+```
+
 ### Create database
 
 - Download and install MS SQL Server Express or other
@@ -2096,14 +2119,24 @@ List of technologies, frameworks and libraries used for implementation:
 
 ### Configure connection string
 
-Set a database connection string called `MeetingsConnectionString` in the root of the API project's appsettings.json or use [Secrets](https://blogs.msdn.microsoft.com/mihansen/2017/09/10/managing-secrets-in-net-core-2-0-apps/)
+Configuration loads environment variables with the prefix `Meetings_` (see [`Startup.cs`](src/API/CompanyName.MyMeetings.API/Startup.cs)). The API reads **`ConnectionStrings:MeetingsConnectionString`**, which corresponds to **`Meetings_ConnectionStrings__MeetingsConnectionString`** when using environment variables.
 
-Example config setting in appsettings.json for a database called `MyMeetings`:
+Set the connection string in the API project via **appsettings**, **user secrets**, or environment variables as described in [ASP.NET Core configuration](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/).
+
+Example for **appsettings** (nested under `ConnectionStrings`):
 
 ```json
 {
- "MeetingsConnectionString": "Server=(localdb)\\mssqllocaldb;Database=MyMeetings;Trusted_Connection=True;"
+  "ConnectionStrings": {
+    "MeetingsConnectionString": "Server=(localdb)\\mssqllocaldb;Database=MyMeetings;Trusted_Connection=True;"
+  }
 }
+```
+
+Example **environment variable** (e.g. Docker Compose):
+
+```text
+Meetings_ConnectionStrings__MeetingsConnectionString=Server=mymeetingsdb,1433;Database=MyMeetings;User=sa;Password=***;Encrypt=False;
 ```
 
 ### Configure startup in IDE
@@ -2142,17 +2175,50 @@ If you use a tool such as Postman to test your API, the token can be fetched and
 
 ### Run using Docker Compose
 
-You can run whole application using [docker compose](https://docs.docker.com/compose/) from root folder:
+You can run the whole stack with [Docker Compose](https://docs.docker.com/compose/) from the repository root:
 
 ```shell
-docker-compose up
+docker compose up -d
 ```
 
-It will create following services: <br/>
+Services:
 
-- MS SQL Server Database
-- Database Migrator
-- Application
+- **mymeetingsdb** — SQL Server (listens on host port **1445** → container **1433**)
+- **migrator** — runs DbUp migrations against `MyMeetings` after the database is healthy
+- **backend** — ASP.NET Core API on host port **5000** (mapped to container port **8080**)
+
+The compose file sets **`Meetings_ConnectionStrings__MeetingsConnectionString`** so the API receives a valid SQL connection string inside the Docker network (`Server=mymeetingsdb,1433;...`).
+
+### CodeLogic scanning (optional)
+
+This repository includes optional [CodeLogic](https://docs.codelogic.com/) integration: a **.NET binary agent** (published assemblies are scanned from **`/app`** in the container) and a **SQL agent** (official image name **`codelogic_sql`**).
+
+1. **Credentials** — In CodeLogic Admin → Installers, copy **`CODELOGIC_HOST`**, **`AGENT_UUID`**, and **`AGENT_PASSWORD`**, and the registry host for Docker images if yours differs from the defaults.
+
+2. **Local configuration** — Copy [`.env.codelogic.example`](.env.codelogic.example) to **`.env.codelogic`** (gitignored), fill in values, and set **`CODELOGIC_PUBLISH_PATH`** if your publish output is not **`./artifacts/out`**.
+
+3. **Database identities for the .NET scan** — In the CodeLogic UI, copy **database identity** values from **NodeDetails**. Put **one JDBC-style identity per line** in **`CODELOGIC_DATABASE_IDENTITIES`** (this adds `-d` flags and improves database relationship mapping). Example for SQL Server on the Compose network:
+
+   ```text
+   jdbc:sqlserver://mymeetingsdb:1433;databaseName=MyMeetings;encrypt=false;trustServerCertificate=true
+   ```
+
+4. **Run scans** — Use both compose files and pass **`.env.codelogic`** so paths and image names interpolate correctly:
+
+   ```shell
+   docker compose --env-file .env.codelogic -f docker-compose.yml -f docker-compose.codelogic.yml --profile codelogic run --rm codelogic-dotnet
+   ```
+
+   Start **mymeetingsdb** (healthy) before the SQL scan:
+
+   ```shell
+   docker compose up -d mymeetingsdb
+   docker compose --env-file .env.codelogic -f docker-compose.yml -f docker-compose.codelogic.yml --profile codelogic run --rm codelogic-sql
+   ```
+
+   **`CODELOGIC_SQL_JDBC_URL`** should point at the same server/database (see `.env.codelogic.example`). For SQL Server, put the database in the JDBC URL; the SQL CLI’s **`-d`** option is intended for Oracle.
+
+5. **CI** — The GitHub Actions workflow can pass optional repository variable **`CODELOGIC_DATABASE_IDENTITIES`** (multiline, one identity per line) into the CodeLogic **analyze** step alongside the published artifact.
 
 ### Run Integration Tests in Docker
 
