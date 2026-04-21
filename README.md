@@ -2237,7 +2237,7 @@ This repository includes optional [CodeLogic](https://docs.codelogic.com/) integ
    ./scripts/codelogic/run-sql-scan.sh
    ```
 
-   Configure **`CODELOGIC_SQL_JDBC_URL`**, **`CODELOGIC_SQL_USER`**, **`CODELOGIC_SQL_PASSWORD`**. For SQL Server, put the database in the JDBC URL (the SQL CLI **`-d`** flag is for Oracle only).
+   **CodeLogic SQL agent vs .NET agent:** If your **SQL** installer in CodeLogic Admin has its **own** agent UUID and password, set **`CODELOGIC_SQL_AGENT_UUID`** and **`CODELOGIC_SQL_AGENT_PASSWORD`** (and **`CODELOGIC_SQL_HOST`** if that differs). If you leave those empty, the SQL scan reuses **`AGENT_UUID`** / **`AGENT_PASSWORD`** / **`CODELOGIC_HOST`** from the .NET block. Separately, **`CODELOGIC_SQL_JDBC_URL`**, **`CODELOGIC_SQL_USER`**, and **`CODELOGIC_SQL_PASSWORD`** are only for connecting **SQL Server** during **`analyze`** (`-c` / `-u` / `-pwd`), not for CodeLogic server auth.
 
 6. **CI** — Optional repository variable **`CODELOGIC_DATABASE_IDENTITIES`** supplies **`-d`** lines; the workflow runs **`scripts/codelogic/run-dotnet-analyze.sh`** with the publish output and **`/usr/share/dotnet`**.
 
