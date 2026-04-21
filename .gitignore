@@ -47,6 +47,8 @@ dlldata.c
 project.lock.json
 artifacts/
 
+.env.codelogic
+
 *_i.c
 *_p.c
 *_i.h

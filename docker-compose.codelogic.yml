@@ -1,0 +1,41 @@
+# CodeLogic agents (profile: codelogic). Copy .env.codelogic.example → .env.codelogic and fill secrets.
+#
+# Compose reads variables for interpolation from your shell or --env-file (recommended).
+# Example:
+#   docker compose --env-file .env.codelogic \
+#     -f docker-compose.yml -f docker-compose.codelogic.yml \
+#     --profile codelogic run --rm codelogic-dotnet
+#
+# Start mymeetingsdb first for codelogic-sql (JDBC host mymeetingsdb).
+
+services:
+  codelogic-dotnet:
+    profiles: ["codelogic"]
+    image: ${CODELOGIC_DOTNET_IMAGE:-thingsboard.app.codelogic.com/codelogic_dotnet:latest}
+    pull_policy: always
+    env_file:
+      - .env.codelogic
+    networks:
+      - starfish-crm-network
+    volumes:
+      - ${CODELOGIC_PUBLISH_PATH:-./artifacts/out}:/app:ro
+      - ./scripts/codelogic/dotnet-scan.sh:/run/dotnet-scan.sh:ro
+    entrypoint: ["/bin/bash", "/run/dotnet-scan.sh"]
+
+  codelogic-sql:
+    profiles: ["codelogic"]
+    image: ${CODELOGIC_SQL_IMAGE:-thingsboard.app.codelogic.com/codelogic_sql:latest}
+    pull_policy: always
+    env_file:
+      - .env.codelogic
+    networks:
+      - starfish-crm-network
+    volumes:
+      - ./scripts/codelogic/sql-scan.sh:/run/sql-scan.sh:ro
+    depends_on:
+      mymeetingsdb:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "/run/sql-scan.sh"]
+
+networks:
+  starfish-crm-network:
