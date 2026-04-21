@@ -10,7 +10,8 @@ services:
     environment:
       - Meetings_MeetingsConnectionString=Server=mymeetingsdb,1433;Database=MyMeetings;User=sa;Password=Test@12345;Encrypt=False;
     depends_on:
-      - migrator
+      migrator:
+        condition: service_started
     restart: on-failure
 
   mymeetingsdb:
@@ -28,6 +29,9 @@ services:
       dockerfile: ./Database/Dockerfile_DatabaseMigrator
     networks:
       - starfish-crm-network
+    depends_on:
+      mymeetingsdb:
+        condition: service_healthy
     environment:
       - ASPNETCORE_MyMeetings_IntegrationTests_ConnectionString=Server=mymeetingsdb,1433;Database=MyMeetings;User=sa;Password=Test@12345;Encrypt=False;
     command:
