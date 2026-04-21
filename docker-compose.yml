@@ -1,4 +1,27 @@
 services:
+  # Writes ./out on the host (bind-mounted from /repo/out) so CodeLogic and other tools can scan the same bits without hosting the SDK.
+  # Run: docker compose --profile publish run --rm dotnet-publish
+  dotnet-publish:
+    profiles: ["publish"]
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    working_dir: /repo
+    volumes:
+      - .:/repo
+    command:
+      [
+        "dotnet",
+        "publish",
+        "src/CompanyName.MyMeetings.sln",
+        "-c",
+        "Release",
+        "-o",
+        "/repo/out",
+        "-p:NuGetAudit=false",
+        "/p:TreatWarningsAsErrors=false",
+        "-p:DeployOnBuild=false",
+        "-p:DeployOnPublish=false",
+      ]
+
   backend:
     container_name: mymeetings_backend
     build:

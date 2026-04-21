@@ -12,7 +12,7 @@ if [[ -f "$ROOT/.env.codelogic" ]]; then
   set +a
 fi
 
-PUBLISH="${CODELOGIC_PUBLISH_PATH:-$ROOT/artifacts/out}"
+PUBLISH="${CODELOGIC_PUBLISH_PATH:-$ROOT/out}"
 REF="${CODELOGIC_REF_DOTNET_HOST:-}"
 if [[ -z "${REF}" && -d /usr/share/dotnet ]]; then
   REF=/usr/share/dotnet

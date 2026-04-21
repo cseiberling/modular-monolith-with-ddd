@@ -6,8 +6,8 @@
 #   run-dotnet-analyze.sh <host-publish-dir> <container-path-for--p> [host-ref-dotnet-root]
 #
 # Examples:
-#   ./scripts/codelogic/run-dotnet-analyze.sh ./artifacts/out /app
-#   ./scripts/codelogic/run-dotnet-analyze.sh "$PWD/artifacts/out" /app /usr/share/dotnet
+#   ./scripts/codelogic/run-dotnet-analyze.sh ./out /app
+#   ./scripts/codelogic/run-dotnet-analyze.sh "$PWD/out" /app /usr/share/dotnet
 #
 # Env (required): CODELOGIC_HOST, AGENT_UUID, AGENT_PASSWORD
 # Env (optional): CODELOGIC_DATABASE_IDENTITIES (multiline, one DB identity per line),
@@ -15,14 +15,27 @@
 
 set -euo pipefail
 
-HOST_PUBLISH="${1:?host path to dotnet publish output (e.g. ./artifacts/out)}"
+HOST_PUBLISH="${1:?host path to dotnet publish output (e.g. ./out)}"
 CONTAINER_SCAN="${2:?path inside container for -p, e.g. /app or /github/workspace}"
 HOST_REF_DOTNET="${3:-}"
 
 IMAGE="${CODELOGIC_DOTNET_IMAGE:-thingsboard.app.codelogic.com/codelogic_dotnet:latest}"
 
 if [[ ! -d "$HOST_PUBLISH" ]]; then
-  echo "publish output directory not found: $HOST_PUBLISH" >&2
+  cat >&2 << EOF
+publish output directory not found: $HOST_PUBLISH
+
+Docker bind-mounts need a real path on the host (same idea as --ref-path: the folder must exist before docker run).
+
+Create it first, for example:
+  docker compose --profile publish run --rm dotnet-publish
+  or from the repo root:
+  dotnet publish src/CompanyName.MyMeetings.sln -c Release -o out \\
+    -p:NuGetAudit=false /p:TreatWarningsAsErrors=false -p:DeployOnBuild=false -p:DeployOnPublish=false
+
+Then set CODELOGIC_PUBLISH_PATH or pass that directory as the first argument.
+The scan mounts it at ${CONTAINER_SCAN} inside the agent (e.g. /app), like CI mounts publish output at /github/workspace.
+EOF
   exit 1
 fi
 HOST_PUBLISH="$(cd "$HOST_PUBLISH" && pwd)"

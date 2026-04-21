@@ -2094,11 +2094,21 @@ dotnet build src/CompanyName.MyMeetings.sln -c Release -p:NuGetAudit=false /p:Tr
 
 `-p:NuGetAudit=false` avoids NuGet advisory warnings being treated as errors during restore (the repo enables `TreatWarningsAsErrors`; third-party packages such as IdentityServer4 may still surface advisories). This matches how the Docker build and CI configure restore/build.
 
-To produce a publish folder for deployment or for [CodeLogic scanning](#codelogic-scanning-optional):
+To produce a publish folder for deployment or for [CodeLogic scanning](#codelogic-scanning-optional), pick one of the following.
+
+**Via Docker Compose** (uses the SDK image; writes **`./out`** at the repo root):
 
 ```shell
-dotnet publish src/CompanyName.MyMeetings.sln -c Release -o artifacts/out -p:NuGetAudit=false /p:TreatWarningsAsErrors=false -p:DeployOnBuild=false -p:DeployOnPublish=false
+docker compose --profile publish run --rm dotnet-publish
 ```
+
+**Via local .NET SDK**:
+
+```shell
+dotnet publish src/CompanyName.MyMeetings.sln -c Release -o out -p:NuGetAudit=false /p:TreatWarningsAsErrors=false -p:DeployOnBuild=false -p:DeployOnPublish=false
+```
+
+The **`out`** directory is created by either command (it is gitignored). [CodeLogic](#codelogic-scanning-optional) bind-mounts that host folder into the agent at **`/app`** — the same requirement as **`--ref-path`**: Docker can only mount directories that already exist on your machine. GitHub Actions CI still publishes to **`artifacts/out`** in the workflow; set **`CODELOGIC_PUBLISH_PATH`** if you use a different folder locally.
 
 ### Create database
 
@@ -2189,6 +2199,12 @@ Services:
 
 The compose file sets **`Meetings_ConnectionStrings__MeetingsConnectionString`** so the API receives a valid SQL connection string inside the Docker network (`Server=mymeetingsdb,1433;...`).
 
+To **publish the .NET solution into `./out`** on the host (for CodeLogic or inspection) using only Docker and **no local SDK**:
+
+```shell
+docker compose --profile publish run --rm dotnet-publish
+```
+
 ### CodeLogic scanning (optional)
 
 This repository includes optional [CodeLogic](https://docs.codelogic.com/) integration: a **.NET binary agent** and a **SQL agent** (image name **`codelogic_sql`**).
@@ -2205,13 +2221,15 @@ This repository includes optional [CodeLogic](https://docs.codelogic.com/) integ
    jdbc:sqlserver://mymeetingsdb:1433;databaseName=MyMeetings;encrypt=false;trustServerCertificate=true
    ```
 
-4. **.NET scan** — After `dotnet publish` to `./artifacts/out` (see [Building the solution](#building-the-solution)):
+4. **.NET scan** — The CodeLogic container maps a **host directory** to **`/app`** inside the agent (`-p /app`). By default **`CODELOGIC_PUBLISH_PATH=./out`**, produced by **`docker compose --profile publish run --rm dotnet-publish`** or **`dotnet publish … -o out`**. Set **`CODELOGIC_PUBLISH_PATH`** in **`.env.codelogic`** if you use another path (CI uses a different output folder on the runner).
 
    ```shell
    ./scripts/codelogic/run-dotnet-scan.sh
    ```
 
-   On Linux, if **`/usr/share/dotnet`** exists, it is mounted for **`--ref-path`** (like CI). Override with **`CODELOGIC_REF_DOTNET_HOST`** if needed.
+   Optional **framework ref assemblies** for **`--ref-path`** work the same way: **`CODELOGIC_REF_DOTNET_HOST`** (or **`/usr/share/dotnet`** on Linux when present) must be a **real directory on the host** before `docker run`. Without a ref mount, the scan still runs; resolution of framework types may be weaker than on CI.
+
+   To reuse binaries from an already-built **backend** image instead of publishing on the host, copy them out first, for example **`docker cp mymeetings_backend:/app ./out`** (adjust the container name; then point **`CODELOGIC_PUBLISH_PATH`** at that folder).
 
 5. **SQL scan** — Start the database first (`docker compose up -d` until **mymeetingsdb** is healthy). The SQL agent container must join the same Docker network so **`mymeetingsdb`** resolves; set **`CODELOGIC_DOCKER_NETWORK`** in **`.env.codelogic`** (see `docker network ls`, e.g. `modular-monolith-with-ddd_starfish-crm-network`), then:
 
