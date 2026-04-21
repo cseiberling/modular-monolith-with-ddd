@@ -5,9 +5,9 @@
 # Usage:
 #   run-dotnet-analyze.sh <host-publish-dir> <container-path-for--p> [host-ref-dotnet-root]
 #
-# Examples:
-#   ./scripts/codelogic/run-dotnet-analyze.sh ./out /app
-#   ./scripts/codelogic/run-dotnet-analyze.sh "$PWD/out" /app /usr/share/dotnet
+# Examples (second arg must NOT be /app — that path is used by the image for entrypoint.sh):
+#   ./scripts/codelogic/run-dotnet-analyze.sh ./out /scan
+#   ./scripts/codelogic/run-dotnet-analyze.sh "$PWD/out" /github/workspace /usr/share/dotnet
 #
 # Env (required): CODELOGIC_HOST, AGENT_UUID, AGENT_PASSWORD
 # Env (optional): CODELOGIC_DATABASE_IDENTITIES (multiline, one DB identity per line),
@@ -16,7 +16,7 @@
 set -euo pipefail
 
 HOST_PUBLISH="${1:?host path to dotnet publish output (e.g. ./out)}"
-CONTAINER_SCAN="${2:?path inside container for -p, e.g. /app or /github/workspace}"
+CONTAINER_SCAN="${2:?path inside container for -p (use /scan or /github/workspace — never /app; image uses /app)}"
 HOST_REF_DOTNET="${3:-}"
 
 IMAGE="${CODELOGIC_DOTNET_IMAGE:-thingsboard.app.codelogic.com/codelogic_dotnet:latest}"
@@ -34,7 +34,7 @@ Create it first, for example:
     -p:NuGetAudit=false /p:TreatWarningsAsErrors=false -p:DeployOnBuild=false -p:DeployOnPublish=false
 
 Then set CODELOGIC_PUBLISH_PATH or pass that directory as the first argument.
-The scan mounts it at ${CONTAINER_SCAN} inside the agent (e.g. /app), like CI mounts publish output at /github/workspace.
+The scan mounts it at ${CONTAINER_SCAN} inside the agent (e.g. /scan). Do not mount over /app — the image keeps entrypoint.sh there.
 EOF
   exit 1
 fi

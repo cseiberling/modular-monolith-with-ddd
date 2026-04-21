@@ -18,4 +18,6 @@ if [[ -z "${REF}" && -d /usr/share/dotnet ]]; then
   REF=/usr/share/dotnet
 fi
 
-exec "$ROOT/scripts/codelogic/run-dotnet-analyze.sh" "$PUBLISH" /app "${REF}"
+# Mount publish output at /scan — NOT /app (the image uses /app for entrypoint.sh and the agent).
+CONTAINER_SCAN="${CODELOGIC_CONTAINER_SCAN_PATH:-/scan}"
+exec "$ROOT/scripts/codelogic/run-dotnet-analyze.sh" "$PUBLISH" "${CONTAINER_SCAN}" "${REF}"

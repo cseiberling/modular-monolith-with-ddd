@@ -2108,7 +2108,7 @@ docker compose --profile publish run --rm dotnet-publish
 dotnet publish src/CompanyName.MyMeetings.sln -c Release -o out -p:NuGetAudit=false /p:TreatWarningsAsErrors=false -p:DeployOnBuild=false -p:DeployOnPublish=false
 ```
 
-The **`out`** directory is created by either command (it is gitignored). [CodeLogic](#codelogic-scanning-optional) bind-mounts that host folder into the agent at **`/app`** — the same requirement as **`--ref-path`**: Docker can only mount directories that already exist on your machine. GitHub Actions CI still publishes to **`artifacts/out`** in the workflow; set **`CODELOGIC_PUBLISH_PATH`** if you use a different folder locally.
+The **`out`** directory is created by either command (it is gitignored). [CodeLogic](#codelogic-scanning-optional) bind-mounts that host folder into the agent at **`/scan`** (not **`/app`**: the codelogic_dotnet image uses **`/app`** for its own **`entrypoint.sh`**). The same requirement applies as for **`--ref-path`**: Docker can only mount directories that already exist on your machine. GitHub Actions CI still publishes to **`artifacts/out`** in the workflow; set **`CODELOGIC_PUBLISH_PATH`** if you use a different folder locally.
 
 ### Create database
 
@@ -2221,7 +2221,7 @@ This repository includes optional [CodeLogic](https://docs.codelogic.com/) integ
    jdbc:sqlserver://mymeetingsdb:1433;databaseName=MyMeetings;encrypt=false;trustServerCertificate=true
    ```
 
-4. **.NET scan** — The CodeLogic container maps a **host directory** to **`/app`** inside the agent (`-p /app`). By default **`CODELOGIC_PUBLISH_PATH=./out`**, produced by **`docker compose --profile publish run --rm dotnet-publish`** or **`dotnet publish … -o out`**. Set **`CODELOGIC_PUBLISH_PATH`** in **`.env.codelogic`** if you use another path (CI uses a different output folder on the runner).
+4. **.NET scan** — The scan mounts publish output at **`/scan`** inside the agent (**`-p /scan`**). Do **not** mount your binaries on **`/app`** in this image: **`/app/entrypoint.sh`** is part of the image and would be hidden by a bind mount. By default **`CODELOGIC_PUBLISH_PATH=./out`**, from **`docker compose --profile publish run --rm dotnet-publish`** or **`dotnet publish … -o out`**. Override with **`CODELOGIC_CONTAINER_SCAN_PATH`** if needed (default **`/scan`**). CI uses **`/github/workspace`** instead, which also avoids **`/app`**.
 
    ```shell
    ./scripts/codelogic/run-dotnet-scan.sh
