@@ -27,16 +27,20 @@ COPY ["Modules/Payments/Infrastructure/CompanyName.MyMeetings.Modules.Payments.I
 COPY ["Modules/Administration/Application/CompanyName.MyMeetings.Modules.Administration.Application.csproj", "Modules/Administration/Application/"]
 COPY ["Modules/Administration/Domain/CompanyName.MyMeetings.Modules.Administration.Domain.csproj", "Modules/Administration/Domain/"]
 COPY ["Modules/Administration/Infrastructure/CompanyName.MyMeetings.Modules.Administration.Infrastructure.csproj", "Modules/Administration/Infrastructure/"]
+COPY ["Modules/Registrations/Application/CompanyName.MyMeetings.Modules.Registrations.Application.csproj", "Modules/Registrations/Application/"]
+COPY ["Modules/Registrations/Domain/CompanyName.MyMeetings.Modules.Registrations.Domain.csproj", "Modules/Registrations/Domain/"]
+COPY ["Modules/Registrations/IntegrationEvents/CompanyName.MyMeetings.Modules.Registrations.IntegrationEvents.csproj", "Modules/Registrations/IntegrationEvents/"]
+COPY ["Modules/Registrations/Infrastructure/CompanyName.MyMeetings.Modules.Registrations.Infrastructure.csproj", "Modules/Registrations/Infrastructure/"]
 COPY ["Directory.Packages.props", "Directory.Packages.props"]
 COPY ["Directory.Build.props", "Directory.Build.props"]
 COPY ["Directory.Build.targets", "Directory.Build.targets"]
-RUN dotnet restore "API/CompanyName.MyMeetings.API/CompanyName.MyMeetings.API.csproj"
+RUN dotnet restore "API/CompanyName.MyMeetings.API/CompanyName.MyMeetings.API.csproj" -p:NuGetAudit=false
 COPY . .
 WORKDIR "/src/API/CompanyName.MyMeetings.API"
-RUN dotnet build "CompanyName.MyMeetings.API.csproj" -c Release -o /app/build
+RUN dotnet build "CompanyName.MyMeetings.API.csproj" -c Release -o /app/build -p:NuGetAudit=false
 
 FROM build AS publish
-RUN dotnet publish "CompanyName.MyMeetings.API.csproj" -c Release -o /app/publish
+RUN dotnet publish "CompanyName.MyMeetings.API.csproj" -c Release -o /app/publish -p:NuGetAudit=false
 
 FROM base AS final
 WORKDIR /app
