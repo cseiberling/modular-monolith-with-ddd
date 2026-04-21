@@ -1,5 +1,5 @@
 #!/bin/bash
-# Reports healthy when SQL Server accepts logins and the MyMeetings database exists.
+# Healthy when SQL Server accepts sa and the MyMeetings database is online.
 
 set -euo pipefail
 
@@ -11,9 +11,7 @@ for candidate in /opt/mssql-tools18/bin/sqlcmd /opt/mssql-tools/bin/sqlcmd; do
   fi
 done
 
-if [[ -z "$SQLCMD" ]]; then
-  exit 1
-fi
+[[ -n "$SQLCMD" ]] || exit 1
 
 PASSWORD="${SA_PASSWORD:?}"
 
@@ -22,8 +20,5 @@ if [[ "$SQLCMD" == *tools18* ]]; then
   extra+=(-C)
 fi
 
-COUNT="$("$SQLCMD" "${extra[@]}" -S localhost -d master -U sa -P "$PASSWORD" \
-  -h-1 -W -Q "SET NOCOUNT ON; SELECT COUNT(*) AS c FROM sys.databases WHERE name = N'MyMeetings'" \
-  | tail -n 1 | tr -d ' \r')
-[[ "${COUNT:-0}" =~ ^[0-9]+$ ]] || exit 1
-[[ "$COUNT" -ge 1 ]]
+"$SQLCMD" "${extra[@]}" -S localhost -d MyMeetings -U sa -P "$PASSWORD" \
+  -Q "SET NOCOUNT ON; SELECT 1" -b -o /dev/null

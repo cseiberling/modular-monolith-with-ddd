@@ -11,7 +11,7 @@ ADD entrypoint.sh /
 ADD healthcheck.sh /
 
 # Invoke with bash so chmod +x is not needed (chmod can fail on some Docker Desktop builds).
-HEALTHCHECK --interval=5s --timeout=5s --start-period=45s --retries=36 \
+HEALTHCHECK --interval=5s --timeout=10s --start-period=120s --retries=24 \
   CMD /bin/bash /healthcheck.sh
 
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
