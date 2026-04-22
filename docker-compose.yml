@@ -30,6 +30,8 @@ services:
       - "5000:8080"
     networks:
       - starfish-crm-network
+    volumes:
+      - /opt/codelogic/sql:/opt/codelogic/sql
     environment:
       - Meetings_ConnectionStrings__MeetingsConnectionString=Server=mymeetingsdb,1433;Database=MyMeetings;User=sa;Password=Test@12345;Encrypt=False;
     depends_on:
