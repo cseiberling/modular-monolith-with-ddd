@@ -2211,7 +2211,7 @@ This repository includes optional [CodeLogic](https://docs.codelogic.com/) integ
 
 **Use host-side `docker run … analyze …` (same as CI)** — Do not override the image **ENTRYPOINT** (e.g. via Compose) or a bare `analyze` command is often missing on `PATH`. [`scripts/codelogic/run-dotnet-analyze.sh`](scripts/codelogic/run-dotnet-analyze.sh) runs the agent the same way as [`.github/workflows/buildPipeline.yml`](.github/workflows/buildPipeline.yml).
 
-1. **Credentials** — In CodeLogic Admin → Installers, copy **`CODELOGIC_HOST`**, **`AGENT_UUID`**, and **`AGENT_PASSWORD`**, and set **`CODELOGIC_DOTNET_IMAGE` / `CODELOGIC_SQL_IMAGE`** if your registry differs.
+1. **Credentials** — One **CodeLogic server** for both flows: **`CODELOGIC_HOST`**. For the .NET agent, set **`AGENT_UUID`** and **`AGENT_PASSWORD`**. If the **SQL** installer in Admin has a **separate** agent, set **`CODELOGIC_SQL_AGENT_UUID`** and **`CODELOGIC_SQL_AGENT_PASSWORD`**; otherwise the SQL script reuses the .NET pair. Set **`CODELOGIC_DOTNET_IMAGE` / `CODELOGIC_SQL_IMAGE`** if your registry host differs. Use the same **`CODELOGIC_SCAN_SPACE`** (and typically **`CODELOGIC_APPLICATION`**) for .NET and SQL so app and database results stay in one scan space.
 
 2. **Configuration** — Copy [`.env.codelogic.example`](.env.codelogic.example) to **`.env.codelogic`** (gitignored), fill in values.
 
@@ -2237,7 +2237,7 @@ This repository includes optional [CodeLogic](https://docs.codelogic.com/) integ
    ./scripts/codelogic/run-sql-scan.sh
    ```
 
-   **CodeLogic SQL agent vs .NET agent:** If your **SQL** installer in CodeLogic Admin has its **own** agent UUID and password, set **`CODELOGIC_SQL_AGENT_UUID`** and **`CODELOGIC_SQL_AGENT_PASSWORD`** (and **`CODELOGIC_SQL_HOST`** if that differs). If you leave those empty, the SQL scan reuses **`AGENT_UUID`** / **`AGENT_PASSWORD`** / **`CODELOGIC_HOST`** from the .NET block. Separately, **`CODELOGIC_SQL_JDBC_URL`**, **`CODELOGIC_SQL_USER`**, and **`CODELOGIC_SQL_PASSWORD`** are only for connecting **SQL Server** during **`analyze`** (`-c` / `-u` / `-pwd`), not for CodeLogic server auth.
+   If the SQL agent **fails on registration**, set **`CODELOGIC_SQL_FORCE_REGISTRATION=1`** once: the script runs **`agent-register -f`**, then **`analyze`**. (That can issue a new agent id; set the flag back to **`0`** after a good run.) **`CODELOGIC_SQL_JDBC_URL`**, **`CODELOGIC_SQL_USER`**, and **`CODELOGIC_SQL_PASSWORD`** are only for the **SQL Server** connection in **`analyze`**, not CodeLogic auth.
 
 6. **CI** — Optional repository variable **`CODELOGIC_DATABASE_IDENTITIES`** supplies **`-d`** lines; the workflow runs **`scripts/codelogic/run-dotnet-analyze.sh`** with the publish output and **`/usr/share/dotnet`**.
 
