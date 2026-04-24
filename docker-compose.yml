@@ -35,6 +35,9 @@ services:
       - /opt/codelogic/sql:/opt/codelogic/sql
     environment:
       - Meetings_ConnectionStrings__MeetingsConnectionString=Server=mymeetingsdb,1433;Database=MyMeetings;User=sa;Password=Test@12345;Encrypt=False;
+      # In-container: ASP.NET listens on 8080; host maps 5000:8080. Metadata must be fetched on loopback:8080; iss stays localhost:5000.
+      - Meetings_Identity__Authority=http://127.0.0.1:8080
+      - Meetings_Identity__TokenIssuer=http://localhost:5000
     depends_on:
       migrator:
         condition: service_completed_successfully

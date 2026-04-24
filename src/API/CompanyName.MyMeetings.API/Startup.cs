@@ -56,7 +56,7 @@ namespace CompanyName.MyMeetings.API
 
             services.AddSwaggerDocumentation();
 
-            services.ConfigureIdentityService();
+            services.ConfigureIdentityService(_configuration);
 
             services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
             services.AddSingleton<IExecutionContextAccessor, ExecutionContextAccessor>();
