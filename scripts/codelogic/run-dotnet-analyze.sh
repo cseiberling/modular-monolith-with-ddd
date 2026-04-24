@@ -71,6 +71,7 @@ fi
 APP="${CODELOGIC_APPLICATION:-ModularMonolith}"
 SPACE="${CODELOGIC_SCAN_SPACE:-ModularMonolith}"
 
+set -x
 exec "${RUN[@]}" "${IMAGE}" \
   analyze -p "${CONTAINER_SCAN}" \
     -a "${APP}" \
@@ -83,4 +84,5 @@ exec "${RUN[@]}" "${IMAGE}" \
     -m DatabaseMigrator. \
     "${DB_ARGS[@]}" \
     "${REF_ARGS[@]}" \
+    --rescan \
     --expunge-scan-sessions
