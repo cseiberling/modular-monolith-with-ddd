@@ -23,12 +23,18 @@ namespace CompanyName.MyMeetings.API.Modules.Payments.PriceListItems
         [HttpGet]
         [HasPermission(PaymentsPermissions.GetPriceListItem)]
         [ProducesResponseType(typeof(PriceListItemMoneyValueDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetPriceListItem([FromQuery] GetPriceListItemRequest request)
         {
             var priceListItem = await _paymentsModule.ExecuteQueryAsync(new GetPriceListItemQuery(
                 request.CountryCode,
                 request.CategoryCode,
                 request.PeriodTypeCode));
+
+            if (priceListItem == null)
+            {
+                return NotFound();
+            }
 
             return Ok(priceListItem);
         }

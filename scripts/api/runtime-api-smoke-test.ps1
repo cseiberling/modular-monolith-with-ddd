@@ -52,6 +52,7 @@ function HttpStatus {
 }
 
 function Expect { param($Code, $Expected, $Label) if ($Code -eq $Expected) { Pass ("{0} (HTTP {1})" -f $Label, $Code) } else { LogFail ("{0} — expected {1}, got {2}" -f $Label, $Expected, $Code) } }
+function Expect-In { param($Code, $Label, [int[]] $AnyOf) $n = [int]$Code; if ($AnyOf -contains $n) { Pass ("{0} (HTTP {1})" -f $Label, $n) } else { LogFail ("{0} — expected one of: {1}, got {2}" -f $Label, ($AnyOf -join ", "), $n) } }
 function New-AccessToken { param($U, $P)
   $scope = [uri]::EscapeDataString("all openid profile")
   $b = "grant_type=password&client_id=ro.client&client_secret=secret&scope=$scope&username=" + [uri]::EscapeDataString($U) + "&password=" + [uri]::EscapeDataString($P)
@@ -79,11 +80,13 @@ $paths = @(
   "/api/meetings/MeetingGroups",
   "/api/meetings/MeetingGroups/all",
   "/api/meetings/MeetingGroupProposals",
-  "/api/meetings/MeetingGroupProposals/all",
-  "/api/payments/priceListItems",
-  "/api/payments/payers/authenticated/subscription"
+  "/api/meetings/MeetingGroupProposals/all"
 )
 foreach ($p in $paths) { $c = (HttpStatus "GET" $p -Token $memberT); Expect -Code $c -Expected 200 -Label ("GET " + $p) }
+$c = (HttpStatus "GET" "/api/payments/priceListItems?countryCode=US&categoryCode=New&periodTypeCode=Month" -Token $memberT)
+Expect -Code $c -Expected 200 -Label "GET /api/payments/priceListItems?countryCode=US&... (0016 seed)"
+$c = (HttpStatus "GET" "/api/payments/payers/authenticated/subscription" -Token $memberT)
+Expect-In -Code $c -Label "GET /api/payments/payers/authenticated/subscription" -AnyOf @(200, 204)
 
 # Optional meeting and group by id
 try { $mList = Invoke-RestMethod -Method Get -Uri ($Base + "/api/meetings/meetings") -Headers @{ "Authorization" = "Bearer " + $memberT } } catch { $mList = @() }

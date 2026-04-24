@@ -2,7 +2,7 @@
 
 namespace CompanyName.MyMeetings.Modules.Payments.Application.PriceListItems.GetPriceListItem
 {
-    public class GetPriceListItemQuery : QueryBase<PriceListItemMoneyValueDto>
+    public class GetPriceListItemQuery : QueryBase<PriceListItemMoneyValueDto?>
     {
         public GetPriceListItemQuery(string countryCode, string categoryCode, string periodTypeCode)
         {

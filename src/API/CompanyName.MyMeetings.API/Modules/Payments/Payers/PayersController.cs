@@ -20,9 +20,15 @@ namespace CompanyName.MyMeetings.API.Modules.Payments.Payers
         [HttpGet("authenticated/subscription")]
         [HasPermission(PaymentsPermissions.GetAuthenticatedPayerSubscription)]
         [ProducesResponseType(typeof(SubscriptionDetailsDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> GetAuthenticatedPayerSubscription()
         {
             var subscription = await _paymentsModule.ExecuteQueryAsync(new GetAuthenticatedPayerSubscriptionQuery());
+
+            if (subscription == null)
+            {
+                return NoContent();
+            }
 
             return Ok(subscription);
         }

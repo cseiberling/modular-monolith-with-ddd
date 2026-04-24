@@ -160,6 +160,25 @@ expect_code() {
   rm -f /tmp/mymeetings_body_$$.txt
 }
 
+# Pass if actual HTTP status is one of the given codes (e.g. 200 or 204).
+expect_code_in() {
+  local name="$1" actual="$2"
+  shift 2
+  local w
+  for w in "$@"; do
+    if [[ "$actual" == "$w" ]]; then
+      log_pass "$name (HTTP $actual)"
+      rm -f /tmp/mymeetings_body_$$.txt
+      return 0
+    fi
+  done
+  log_fail "$name — expected one of: $* — got $actual"
+  if [[ "$VERBOSE" == "1" ]] && [[ -f /tmp/mymeetings_body_$$.txt ]]; then
+    log_info "$(head -c 2000 /tmp/mymeetings_body_$$.txt)"
+  fi
+  rm -f /tmp/mymeetings_body_$$.txt
+}
+
 # --- Main ---------------------------------------------------------------------------
 echo "Base URL: $BASE_URL"
 echo
@@ -187,13 +206,17 @@ for path in \
   "/api/meetings/MeetingGroups" \
   "/api/meetings/MeetingGroups/all" \
   "/api/meetings/MeetingGroupProposals" \
-  "/api/meetings/MeetingGroupProposals/all" \
-  "/api/payments/priceListItems" \
-  "/api/payments/payers/authenticated/subscription"
+  "/api/meetings/MeetingGroupProposals/all"
 do
   c="$(http_code GET "$path" "$member_token")"
   expect_code "GET $path" 200 "$c"
 done
+
+# Price list: requires country/category/period (seeded in migration 0016; 404 if no match)
+c="$(http_code GET "/api/payments/priceListItems?countryCode=US&categoryCode=New&periodTypeCode=Month" "$member_token")"
+expect_code "GET /api/payments/priceListItems?countryCode=US&… (sample row)" 200 "$c"
+c="$(http_code GET "/api/payments/payers/authenticated/subscription" "$member_token")"
+expect_code_in "GET /api/payments/payers/authenticated/subscription" "$c" 200 204
 
 # Sub-resources using first meeting id (if any)
 meetings_json="$("${CURL[@]}" -H "Authorization: Bearer ${member_token}" "${BASE_URL}/api/meetings/meetings" 2>/dev/null || true)"

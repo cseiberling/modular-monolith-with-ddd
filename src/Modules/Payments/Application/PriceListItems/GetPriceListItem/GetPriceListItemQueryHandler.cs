@@ -4,7 +4,7 @@ using Dapper;
 
 namespace CompanyName.MyMeetings.Modules.Payments.Application.PriceListItems.GetPriceListItem
 {
-    internal class GetPriceListItemQueryHandler : IQueryHandler<GetPriceListItemQuery, PriceListItemMoneyValueDto>
+    internal class GetPriceListItemQueryHandler : IQueryHandler<GetPriceListItemQuery, PriceListItemMoneyValueDto?>
     {
         private readonly ISqlConnectionFactory _sqlConnectionFactory;
 
@@ -13,7 +13,7 @@ namespace CompanyName.MyMeetings.Modules.Payments.Application.PriceListItems.Get
             _sqlConnectionFactory = sqlConnectionFactory;
         }
 
-        public async Task<PriceListItemMoneyValueDto> Handle(
+        public async Task<PriceListItemMoneyValueDto?> Handle(
             GetPriceListItemQuery query,
             CancellationToken cancellationToken)
         {
@@ -30,7 +30,7 @@ namespace CompanyName.MyMeetings.Modules.Payments.Application.PriceListItems.Get
                                     AND [PriceListItem].[CategoryCode] = @CategoryCode 
                                     AND [PriceListItem].[CountryCode] = @CountryCode 
                                 """;
-            return await connection.QuerySingleAsync<PriceListItemMoneyValueDto>(
+            return await connection.QuerySingleOrDefaultAsync<PriceListItemMoneyValueDto>(
                 sql,
                 new
                 {
