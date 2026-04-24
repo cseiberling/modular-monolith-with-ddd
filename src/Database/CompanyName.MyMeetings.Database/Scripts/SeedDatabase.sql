@@ -127,10 +127,10 @@ INSERT INTO users.[Permissions] ([Code], [Name]) VALUES
 	('DeactivatePriceListItem','DeactivatePriceListItem'),
 	('ChangePriceListItemAttributes','ChangePriceListItemAttributes'),
 	('GetAuthenticatedPayerSubscription','GetAuthenticatedPayerSubscription'),
-	('GetPriceListItem','GetPriceListItem')
+	('GetPriceListItem', 'GetPriceListItem');
 
 -- Meetings
-INSERT INTO users.RolesToPermissions VALUES ('Member', 'GetMeetingGroupProposals')
+INSERT INTO users.RolesToPermissions VALUES ('Member', 'GetMeetingGroupProposals');
 INSERT INTO users.RolesToPermissions VALUES ('Member', 'ProposeMeetingGroup')
 INSERT INTO users.RolesToPermissions VALUES ('Member', 'CreateNewMeeting')
 INSERT INTO users.RolesToPermissions VALUES ('Member', 'EditMeeting')
@@ -157,7 +157,7 @@ INSERT INTO users.RolesToPermissions VALUES ('Member', 'GetAuthenticatedMemberMe
 INSERT INTO users.RolesToPermissions VALUES ('Member', 'GetMeetingGroupDetails')
 INSERT INTO users.RolesToPermissions VALUES ('Member', 'GetMeetingDetails')
 INSERT INTO users.RolesToPermissions VALUES ('Member', 'GetMeetingAttendees')
-INSERT INTO users.RolesToPermissions VALUES ('Member', 'MyMeetingsGroupsView')
+INSERT INTO users.RolesToPermissions VALUES ('Member', 'MyMeetingGroupsView');
 INSERT INTO users.RolesToPermissions VALUES ('Member', 'SubscriptionView')
 INSERT INTO users.RolesToPermissions VALUES ('Member', 'EmailsView')
 INSERT INTO users.RolesToPermissions VALUES ('Member', 'AllMeetingGroupsView')
