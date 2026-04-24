@@ -38,16 +38,63 @@ log_fail() { echo "[FAIL] $*" >&2; fail_count=$((fail_count + 1)); }
 log_info() { echo "       $*"; }
 
 # --- JSON helpers (python3 required) -------------------------------------------------
+# IdentityServer4 client (IdentityServerConfig) allows: all, openid, profile — include scope.
 get_token() {
   local user="$1" pass="$2"
-  local resp
-  if ! resp="$("${CURL[@]}" -X POST "${BASE_URL}/connect/token" \
+  local out code body bodyf tokf
+  out="$(mktemp)" || { echo "mktemp failed" >&2; return 1; }
+  # Use --data-urlencode for credentials so & and + in password do not break the form.
+  code=$("${CURL[@]}" -sS -o "$out" -w "%{http_code}" -X POST "${BASE_URL}/connect/token" \
     -H "Content-Type: application/x-www-form-urlencoded" \
-    -d "grant_type=password&username=${user}&password=${pass}&client_id=ro.client&client_secret=secret")"; then
-    echo "$resp"
+    -d "grant_type=password" \
+    -d "client_id=ro.client" \
+    -d "client_secret=secret" \
+    -d "scope=all openid profile" \
+    --data-urlencode "username=$user" \
+    --data-urlencode "password=$pass")
+  body=$(<"$out")
+  rm -f "$out" || true
+
+  if [[ ! "$code" =~ ^(200|400)$ ]]; then
+    echo "Token request failed: HTTP $code" >&2
+    echo "Body (first 2000 chars): ${body:0:2000}" >&2
     return 1
   fi
-  python3 -c "import json,sys; d=json.load(sys.stdin); t=d.get('access_token') or ''; print(t or '', end=''); sys.exit(0 if t else 1)" <<< "$resp"
+
+  bodyf=$(mktemp) || return 1
+  tokf=$(mktemp)  || { rm -f "$bodyf"; return 1; }
+  printf '%s' "$body" > "$bodyf"
+
+  local t
+  t=""
+  if python3 -c "import json, sys, pathlib
+b, out = sys.argv[1], sys.argv[2]
+try:
+  d = json.loads(pathlib.Path(b).read_text(encoding='utf-8'))
+except (ValueError, OSError) as e:
+  sys.stderr.write('Invalid token response: ' + str(e) + '\n')
+  raise SystemExit(1) from e
+tok = d.get('access_token')
+if tok:
+  pathlib.Path(out).write_text(tok, encoding='ascii')
+  raise SystemExit(0)
+e = d.get('error', 'no_access_token')
+ed = d.get('error_description') or ''
+sys.stderr.write((e + ': ' + ed + '\n') if ed else (e + ' (keys: ' + str(list(d.keys())) + ')\n'))
+raise SystemExit(1)
+" "$bodyf" "$tokf"; then
+    t=$(<"$tokf")
+  fi
+  rm -f "$bodyf" "$tokf" || true
+
+  if [[ -n "$t" ]]; then
+    printf '%s' "$t"
+    return 0
+  fi
+  echo "Token request failed: HTTP $code" >&2
+  echo "Body (first 2000 chars): ${body:0:2000}" >&2
+  echo "Hint: use seed users (e.g. testMember@mail.com / testMemberPass from SeedDatabase.sql) or set MYMEETINGS_MEMBER_USERNAME." >&2
+  return 1
 }
 
 first_meeting_id() {

@@ -1,13 +1,14 @@
 ﻿### Authenticate Member
+### Scopes: client allows "all" (API), "openid", "profile" (see IdentityServerConfig.GetClients)
 POST {{baseUrl}}/connect/token
 Content-Type: application/x-www-form-urlencoded
 
-grant_type=password&username=testMember@mail.com&password=testMemberPass&client_id=ro.client&client_secret=secret
+grant_type=password&username=testMember@mail.com&password=testMemberPass&client_id=ro.client&client_secret=secret&scope=all%20openid%20profile
 
 ### Authenticate Admin
 POST {{baseUrl}}/connect/token
 Content-Type: application/x-www-form-urlencoded
 
-grant_type=password&username=testAdmin@mail.com&password=testAdminPass&client_id=ro.client&client_secret=secret
+grant_type=password&username=testAdmin@mail.com&password=testAdminPass&client_id=ro.client&client_secret=secret&scope=all%20openid%20profile
 
 

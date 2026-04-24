@@ -53,9 +53,12 @@ function HttpStatus {
 
 function Expect { param($Code, $Expected, $Label) if ($Code -eq $Expected) { Pass ("{0} (HTTP {1})" -f $Label, $Code) } else { LogFail ("{0} — expected {1}, got {2}" -f $Label, $Expected, $Code) } }
 function New-AccessToken { param($U, $P)
-  $b = "grant_type=password&username=" + [uri]::EscapeDataString($U) + "&password=" + [uri]::EscapeDataString($P) + "&client_id=ro.client&client_secret=secret"
-  try { (Invoke-RestMethod -Method Post -Uri ($Base + "/connect/token") -ContentType "application/x-www-form-urlencoded" -Body $b -ErrorAction Stop).access_token }
-  catch { $null }
+  $scope = [uri]::EscapeDataString("all openid profile")
+  $b = "grant_type=password&client_id=ro.client&client_secret=secret&scope=$scope&username=" + [uri]::EscapeDataString($U) + "&password=" + [uri]::EscapeDataString($P)
+  try { return (Invoke-RestMethod -Method Post -Uri ($Base + "/connect/token") -ContentType "application/x-www-form-urlencoded" -Body $b -ErrorAction Stop).access_token } catch {
+    if ($null -ne $_.ErrorDetails) { Write-Warning $_.ErrorDetails.Message } elseif ($null -ne $_.Exception) { Write-Warning $_.Exception.ToString() }
+    return $null
+  }
 }
 
 $firstMeetingId = $null
